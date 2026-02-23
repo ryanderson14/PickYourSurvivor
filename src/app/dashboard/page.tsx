@@ -1,0 +1,107 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { Header } from "@/components/layout/header";
+import { LeagueCard } from "@/components/league/league-card";
+import { CreateLeagueDialog } from "@/components/league/create-league-dialog";
+import { JoinLeagueDialog } from "@/components/league/join-league-dialog";
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  // Check if user has username
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.username) redirect("/onboarding");
+
+  // Get user's leagues with member count
+  const { data: memberships } = await supabase
+    .from("league_members")
+    .select(
+      `
+      league_id,
+      is_eliminated,
+      eliminated_at_episode,
+      leagues (
+        id,
+        name,
+        invite_code,
+        host_id,
+        season,
+        created_at
+      )
+    `
+    )
+    .eq("user_id", user.id)
+    .order("joined_at", { ascending: false });
+
+  // Get current episode
+  const { data: currentEpisode } = await supabase
+    .from("episodes")
+    .select("*")
+    .eq("is_complete", false)
+    .order("number")
+    .limit(1)
+    .single();
+
+  return (
+    <div className="min-h-screen">
+      <Header />
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Your Leagues</h1>
+            <p className="text-muted-foreground">
+              Season 50{currentEpisode ? ` — Episode ${currentEpisode.number}` : ""}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <JoinLeagueDialog />
+            <CreateLeagueDialog />
+          </div>
+        </div>
+
+        {!memberships || memberships.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/50 p-12 text-center">
+            <p className="text-lg text-muted-foreground">
+              You haven&apos;t joined any leagues yet.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create a league or join one with an invite code.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {memberships.map((m) => {
+              const league = m.leagues as unknown as {
+                id: string;
+                name: string;
+                invite_code: string;
+                host_id: string;
+                season: number;
+              };
+              return (
+                <LeagueCard
+                  key={league.id}
+                  league={league}
+                  isEliminated={m.is_eliminated}
+                  eliminatedAtEpisode={m.eliminated_at_episode}
+                  isHost={league.host_id === user.id}
+                  currentEpisode={currentEpisode?.number ?? null}
+                />
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
