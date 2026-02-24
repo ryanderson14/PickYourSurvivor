@@ -8,7 +8,6 @@ export function LeagueCard({
   isEliminated,
   eliminatedAtEpisode,
   isHost,
-  currentEpisode,
 }: {
   league: {
     id: string;

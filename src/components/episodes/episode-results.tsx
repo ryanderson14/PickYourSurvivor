@@ -10,13 +10,13 @@ import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function EpisodeResults({
+  leagueId,
   episode,
   contestants,
-  episodes,
 }: {
+  leagueId: string;
   episode: Episode;
   contestants: Contestant[];
-  episodes: Episode[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -45,6 +45,7 @@ export function EpisodeResults({
 
     startTransition(async () => {
       const result = await recordEpisodeResults(
+        leagueId,
         episode.id,
         Array.from(selected)
       );

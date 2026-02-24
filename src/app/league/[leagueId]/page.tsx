@@ -3,10 +3,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { StandingsTable } from "@/components/league/standings-table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Crown, Copy, Settings, Clock } from "lucide-react";
+import { Crown, Settings, Clock } from "lucide-react";
 import { CopyButton } from "@/components/league/copy-button";
 import { CountdownTimer } from "@/components/picks/countdown-timer";
 
@@ -57,12 +56,6 @@ export default async function LeaguePage({
     .order("number")
     .limit(1)
     .single();
-
-  // Get all episodes for context
-  const { data: episodes } = await supabase
-    .from("episodes")
-    .select("*")
-    .order("number");
 
   // Get all picks for this league
   const { data: allPicks } = await supabase

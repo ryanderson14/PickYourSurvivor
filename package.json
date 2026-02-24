@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sim:setup": "node scripts/local-sim.mjs setup",
+    "sim:seed": "node scripts/local-sim.mjs seed",
+    "sim:reveal": "node scripts/local-sim.mjs reveal",
+    "sim:advance": "node scripts/local-sim.mjs advance",
+    "sim:help": "node scripts/local-sim.mjs help"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

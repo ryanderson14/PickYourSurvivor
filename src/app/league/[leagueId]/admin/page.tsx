@@ -3,7 +3,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { EpisodeResults } from "@/components/episodes/episode-results";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import type { Contestant, Episode } from "@/lib/types";
@@ -70,9 +69,9 @@ export default async function AdminPage({
             <CardContent>
               {nextEpisode ? (
                 <EpisodeResults
+                  leagueId={leagueId}
                   episode={nextEpisode as Episode}
                   contestants={(contestants ?? []) as Contestant[]}
-                  episodes={(episodes ?? []) as Episode[]}
                 />
               ) : (
                 <p className="text-muted-foreground">
