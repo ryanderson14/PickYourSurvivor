@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "crypto";
 
 function generateInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -26,24 +27,26 @@ export async function createLeague(formData: FormData) {
   }
 
   const invite_code = generateInviteCode();
+  const leagueId = randomUUID();
 
-  const { data: league, error } = await supabase
+  // Generate the ID upfront so we can insert the league and member together.
+  // We can't use .select() after .insert() because the leagues_select RLS
+  // policy requires league_members membership, which doesn't exist yet.
+  const { error: leagueError } = await supabase
     .from("leagues")
-    .insert({ name: name.trim(), invite_code, host_id: user.id })
-    .select()
-    .single();
+    .insert({ id: leagueId, name: name.trim(), invite_code, host_id: user.id });
 
-  if (error) {
+  if (leagueError) {
     return { error: "Failed to create league. Try again." };
   }
 
   // Auto-join the host as a member
   await supabase
     .from("league_members")
-    .insert({ league_id: league.id, user_id: user.id });
+    .insert({ league_id: leagueId, user_id: user.id });
 
   revalidatePath("/dashboard");
-  redirect(`/league/${league.id}`);
+  redirect(`/league/${leagueId}`);
 }
 
 export async function joinLeague(formData: FormData) {
