@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Flame } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "@/components/auth/user-menu";
+import { HowToPlayButton } from "@/components/layout/how-to-play-button";
 
 export async function Header() {
   const supabase = await createClient();
@@ -26,12 +27,15 @@ export async function Header() {
           <Flame className="h-5 w-5 text-primary" />
           <span className="font-bold">Pick Your Survivor</span>
         </Link>
-        {profile && (
-          <UserMenu
-            username={profile.username}
-            avatarUrl={profile.avatar_url}
-          />
-        )}
+        <div className="flex items-center gap-1">
+          <HowToPlayButton />
+          {profile && (
+            <UserMenu
+              username={profile.username}
+              avatarUrl={profile.avatar_url}
+            />
+          )}
+        </div>
       </div>
     </header>
   );
