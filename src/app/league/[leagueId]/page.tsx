@@ -118,6 +118,14 @@ export default async function LeaguePage({
   const pickStatus = (() => {
     if (isUserEliminated) return { kind: "eliminated" as const };
     if (locked) return { kind: "locked" as const };
+    if (currentUserPicks.length >= requiredPicks && currentUserPicks.length > 0) {
+      return {
+        kind: "picked" as const,
+        contestants: currentUserPicks
+          .filter((p) => p.contestant)
+          .map((p) => p.contestant as Pick<Contestant, "name" | "image_url" | "tribe">),
+      };
+    }
     if (requiredPicks > 1 && currentUserPicks.length > 0) {
       return {
         kind: "debt" as const,
@@ -132,12 +140,6 @@ export default async function LeaguePage({
         picked: 0,
       };
     }
-    if (currentUserPicks.length > 0 && currentUserPicks[0].contestant) {
-      return {
-        kind: "picked" as const,
-        contestant: currentUserPicks[0].contestant as Pick<Contestant, "name" | "image_url" | "tribe">,
-      };
-    }
     return { kind: "pick-below" as const };
   })();
 
@@ -149,35 +151,37 @@ export default async function LeaguePage({
       (c) => !c.is_eliminated && !memberUsedIds.has(c.id)
     ).length;
 
-    // Build pick history from completed episodes
-    const pickHistory = completedEpisodes.map((ep) => {
-      const pick = memberPicks.find(
+    // Build pick history from completed episodes (supports multiple picks per episode)
+    const pickHistory = completedEpisodes.flatMap((ep) => {
+      const episodePicks = memberPicks.filter(
         (p) => p.episode && (p.episode as Episode).number === ep.number
       );
 
-      if (!pick || !pick.contestant) {
-        return {
-          episodeNumber: ep.number,
-          contestant: null,
-          survived: false,
-          missed: true,
-        };
+      if (episodePicks.length === 0) {
+        return [
+          {
+            episodeNumber: ep.number,
+            contestant: null as Pick<Contestant, "name" | "image_url" | "tribe"> | null,
+            survived: false,
+            missed: true,
+          },
+        ];
       }
 
-      const contestant = pick.contestant as Contestant;
-      const wasEliminated =
-        contestant.eliminated_at_episode === ep.number;
-
-      return {
-        episodeNumber: ep.number,
-        contestant: {
-          name: contestant.name,
-          image_url: contestant.image_url,
-          tribe: contestant.tribe,
-        },
-        survived: !wasEliminated,
-        missed: false,
-      };
+      return episodePicks.map((pick) => {
+        const contestant = pick.contestant as Contestant;
+        const wasEliminated = contestant.eliminated_at_episode === ep.number;
+        return {
+          episodeNumber: ep.number,
+          contestant: {
+            name: contestant.name,
+            image_url: contestant.image_url,
+            tribe: contestant.tribe,
+          },
+          survived: !wasEliminated,
+          missed: false,
+        };
+      });
     });
 
     return {

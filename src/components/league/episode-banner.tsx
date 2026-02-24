@@ -8,7 +8,7 @@ import type { Contestant, Episode } from "@/lib/types";
 
 export type PickStatus =
   | { kind: "pick-below" }
-  | { kind: "picked"; contestant: Pick<Contestant, "name" | "image_url" | "tribe"> }
+  | { kind: "picked"; contestants: Pick<Contestant, "name" | "image_url" | "tribe">[] }
   | { kind: "locked" }
   | { kind: "eliminated" }
   | { kind: "debt"; required: number; picked: number };
@@ -94,16 +94,27 @@ export function EpisodeBanner({
         >
           {pickStatus.kind === "picked" && (
             <>
-              <div className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-green-500">
-                <Image
-                  src={getContestantPhotoUrl(pickStatus.contestant)}
-                  alt={pickStatus.contestant.name}
-                  fill
-                  className="object-cover"
-                />
+              <div className="flex -space-x-2">
+                {pickStatus.contestants.slice(0, 3).map((contestant, i) => (
+                  <div
+                    key={i}
+                    className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-green-500 ring-1 ring-background"
+                    style={{ zIndex: pickStatus.contestants.length - i }}
+                  >
+                    <Image
+                      src={getContestantPhotoUrl(contestant)}
+                      alt={contestant.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
               </div>
               <span className="hidden text-sm font-medium text-green-400 sm:inline">
-                {pickStatus.contestant.name.split(" ")[0]}
+                {pickStatus.contestants
+                  .slice(0, 3)
+                  .map((c) => c.name.split(" ")[0])
+                  .join(" & ")}
               </span>
             </>
           )}

@@ -34,7 +34,7 @@ function PickHistoryList({ history }: { history: PickHistoryEntry[] }) {
 
   return (
     <div className="space-y-1">
-      {history.map((entry) => {
+      {history.map((entry, index) => {
         const borderColor = entry.missed
           ? "border-l-muted-foreground/30 border-dashed"
           : entry.survived
@@ -43,7 +43,7 @@ function PickHistoryList({ history }: { history: PickHistoryEntry[] }) {
 
         return (
           <div
-            key={entry.episodeNumber}
+            key={`${entry.episodeNumber}-${index}`}
             className={`flex items-center gap-3 rounded-r-lg border-l-2 py-1.5 pl-3 ${borderColor}`}
           >
             {/* Photo or dash */}
