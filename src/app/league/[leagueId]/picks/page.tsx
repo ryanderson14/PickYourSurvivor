@@ -3,14 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { ContestantGrid } from "@/components/picks/contestant-grid";
 import { CountdownTimer } from "@/components/picks/countdown-timer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import {
   getRequiredPicks,
-  getAvailableContestants,
   arePicksLocked,
   getCurrentEpisode,
 } from "@/lib/game-logic";
@@ -30,12 +27,33 @@ export default async function PicksPage({
   if (!user) redirect("/login");
 
   // Verify membership
-  const { data: member } = await supabase
+  const { data: member, error: memberError } = await supabase
     .from("league_members")
     .select("*")
     .eq("league_id", leagueId)
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (memberError) {
+    console.error("[picks.league_members.memberLookup]", memberError);
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <main className="mx-auto max-w-5xl px-4 py-8">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-lg text-destructive">
+                Couldn&apos;t verify your league membership.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Apply the latest Supabase migrations, then try again.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   if (!member) redirect("/dashboard");
 
@@ -98,9 +116,6 @@ export default async function PicksPage({
     episodes,
     currentEpisode.number
   );
-
-  // Available contestants
-  const available = getAvailableContestants(allContestants, allPicks);
 
   // For display, we want all contestants but mark which are available
   const usedContestantIds = new Set(allPicks.map((p) => p.contestant_id));

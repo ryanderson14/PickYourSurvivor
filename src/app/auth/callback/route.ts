@@ -15,13 +15,17 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
       if (user) {
         // Upsert profile as a safety net in case the trigger failed
-        await supabase.from("profiles").upsert(
+        const { error: profileUpsertError } = await supabase.from("profiles").upsert(
           {
             id: user.id,
             avatar_url: user.user_metadata?.avatar_url ?? null,
           },
           { onConflict: "id", ignoreDuplicates: true }
         );
+
+        if (profileUpsertError) {
+          console.error("[auth.callback.profileUpsert]", profileUpsertError);
+        }
 
         const { data: profile } = await supabase
           .from("profiles")

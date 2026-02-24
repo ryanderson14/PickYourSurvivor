@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   if (!profile?.username) redirect("/onboarding");
 
   // Get user's leagues with member count
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("league_members")
     .select(
       `
@@ -42,6 +42,10 @@ export default async function DashboardPage() {
     )
     .eq("user_id", user.id)
     .order("joined_at", { ascending: false });
+
+  if (membershipsError) {
+    console.error("[dashboard.league_members.select]", membershipsError);
+  }
 
   // Get current episode
   const { data: currentEpisode } = await supabase
@@ -69,7 +73,12 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {!memberships || memberships.length === 0 ? (
+        {membershipsError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
+            We couldn&apos;t load your league memberships due to a database policy
+            error. Apply the latest Supabase migrations and refresh.
+          </div>
+        ) : !memberships || memberships.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/50 p-12 text-center">
             <p className="text-lg text-muted-foreground">
               You haven&apos;t joined any leagues yet.
