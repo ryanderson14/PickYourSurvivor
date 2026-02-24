@@ -11,8 +11,8 @@ import type { Contestant } from "@/lib/types";
 type PickHistoryEntry = {
   episodeNumber: number;
   contestant: Pick<Contestant, "name" | "image_url" | "tribe"> | null;
-  survived: boolean; // true = survived, false = eliminated that episode
-  missed: boolean; // true = no pick made
+  survived: boolean;
+  missed: boolean;
 };
 
 export type MemberWithStats = {
@@ -29,55 +29,65 @@ export type MemberWithStats = {
   pickHistory: PickHistoryEntry[];
 };
 
-function PickHistoryTimeline({
-  history,
-}: {
-  history: PickHistoryEntry[];
-}) {
+function PickHistoryList({ history }: { history: PickHistoryEntry[] }) {
   if (history.length === 0) return null;
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto py-1">
-      {history.map((entry) => (
-        <div
-          key={entry.episodeNumber}
-          className="flex shrink-0 flex-col items-center gap-0.5"
-        >
-          {entry.missed ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
-              <Minus className="h-3 w-3 text-muted-foreground/40" />
+    <div className="space-y-1">
+      {history.map((entry) => {
+        const borderColor = entry.missed
+          ? "border-l-muted-foreground/30 border-dashed"
+          : entry.survived
+            ? "border-l-green-500"
+            : "border-l-red-500";
+
+        return (
+          <div
+            key={entry.episodeNumber}
+            className={`flex items-center gap-3 rounded-r-lg border-l-2 py-1.5 pl-3 ${borderColor}`}
+          >
+            {/* Photo or dash */}
+            {entry.missed || !entry.contestant ? (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
+                <Minus className="h-4 w-4 text-muted-foreground/40" />
+              </div>
+            ) : (
+              <div
+                className={`relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 ${
+                  entry.survived ? "border-green-500" : "border-red-500"
+                }`}
+              >
+                <Image
+                  src={getContestantPhotoUrl(entry.contestant)}
+                  alt={entry.contestant.name}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
+                {!entry.survived && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Skull className="h-4 w-4 text-red-400" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Episode + name */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  Ep. {entry.episodeNumber}
+                </span>
+                <span className="truncate text-sm font-medium">
+                  {entry.missed
+                    ? "Missed"
+                    : entry.contestant?.name ?? "Unknown"}
+                </span>
+              </div>
             </div>
-          ) : entry.contestant ? (
-            <div
-              className={`relative h-8 w-8 overflow-hidden rounded-full border-2 ${
-                entry.survived
-                  ? "border-green-500"
-                  : "border-red-500"
-              }`}
-            >
-              <Image
-                src={getContestantPhotoUrl(entry.contestant)}
-                alt={entry.contestant.name}
-                fill
-                sizes="32px"
-                className="object-cover"
-              />
-              {!entry.survived && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <Skull className="h-3 w-3 text-red-400" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
-              <Minus className="h-3 w-3 text-muted-foreground/40" />
-            </div>
-          )}
-          <span className="text-[10px] text-muted-foreground">
-            {entry.episodeNumber}
-          </span>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -91,7 +101,6 @@ export function StandingsTable({
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Sort: active first (by available picks desc), then eliminated (by episode desc)
   const sorted = [...members].sort((a, b) => {
     if (a.is_eliminated !== b.is_eliminated) return a.is_eliminated ? 1 : -1;
     if (!a.is_eliminated && !b.is_eliminated) {
@@ -131,7 +140,12 @@ export function StandingsTable({
             }`}
           >
             {/* Identity bar */}
-            <div className="flex items-center gap-3 p-3">
+            <button
+              onClick={hasHistory ? () => toggleExpand(member.user_id) : undefined}
+              className={`flex w-full items-center gap-3 p-3 text-left ${
+                hasHistory ? "cursor-pointer" : ""
+              }`}
+            >
               <span className="w-6 text-center text-sm font-medium text-muted-foreground">
                 {index + 1}
               </span>
@@ -163,30 +177,30 @@ export function StandingsTable({
                     {member.availableContestants} left
                   </Badge>
                 )}
-                {/* Mobile expand toggle */}
                 {hasHistory && (
-                  <button
-                    onClick={() => toggleExpand(member.user_id)}
-                    className="lg:hidden rounded p-1 hover:bg-accent"
-                  >
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${
-                        isExpanded ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+                  <ChevronDown
+                    className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
                 )}
               </div>
-            </div>
+            </button>
 
-            {/* Pick history timeline - always visible on desktop, expandable on mobile */}
+            {/* Pick history — collapsible vertical list */}
             {hasHistory && (
               <div
-                className={`border-t border-border/30 px-3 pb-3 pt-2 ${
-                  isExpanded ? "block" : "hidden lg:block"
+                className={`grid transition-all duration-200 ease-in-out ${
+                  isExpanded
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0"
                 }`}
               >
-                <PickHistoryTimeline history={member.pickHistory} />
+                <div className="overflow-hidden">
+                  <div className="border-t border-border/30 px-3 pb-3 pt-2 pl-12">
+                    <PickHistoryList history={member.pickHistory} />
+                  </div>
+                </div>
               </div>
             )}
           </div>

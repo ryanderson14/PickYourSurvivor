@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { StandingsTable } from "@/components/league/standings-table";
 import type { MemberWithStats } from "@/components/league/standings-table";
-import { EpisodeBanner } from "@/components/league/episode-banner";
-import { ContestantGrid } from "@/components/picks/contestant-grid";
+import { EpisodePickSection } from "@/components/league/episode-pick-section";
 import { Card, CardContent } from "@/components/ui/card";
 import { Crown, Trophy } from "lucide-react";
 import { CopyButton } from "@/components/league/copy-button";
@@ -229,9 +228,19 @@ export default async function LeaguePage({
           </Card>
         )}
 
-        {/* Episode Banner */}
+        {/* Episode Banner + Collapsible Contestant Grid */}
         {currentEpisode && (
-          <EpisodeBanner episode={currentEpisode} pickStatus={pickStatus} />
+          <EpisodePickSection
+            episode={currentEpisode}
+            pickStatus={pickStatus}
+            contestants={allContestants}
+            usedContestantIds={usedContestantIds}
+            currentPickIds={currentUserPicks.map((p) => p.contestant_id)}
+            requiredPicks={requiredPicks}
+            leagueId={leagueId}
+            isLocked={locked}
+            isEliminated={isUserEliminated}
+          />
         )}
 
         {/* Season Complete */}
@@ -243,29 +252,6 @@ export default async function LeaguePage({
               </p>
             </CardContent>
           </Card>
-        )}
-
-        {/* Contestant Grid (inline) */}
-        {!seasonComplete && currentEpisode && (
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">
-              {isUserEliminated
-                ? "Contestants"
-                : locked
-                  ? "This Week's Contestants"
-                  : "Make Your Pick"}
-            </h2>
-            <ContestantGrid
-              contestants={allContestants}
-              usedContestantIds={usedContestantIds}
-              currentPickIds={currentUserPicks.map((p) => p.contestant_id)}
-              requiredPicks={requiredPicks}
-              leagueId={leagueId}
-              episodeId={currentEpisode.id}
-              isLocked={locked}
-              isEliminated={isUserEliminated}
-            />
-          </section>
         )}
 
         {/* Standings + Pick History */}

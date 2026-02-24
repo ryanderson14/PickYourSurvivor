@@ -18,6 +18,7 @@ export function ContestantGrid({
   episodeId,
   isLocked,
   isEliminated,
+  onPickSubmitted,
 }: {
   contestants: Contestant[];
   usedContestantIds: string[];
@@ -27,6 +28,7 @@ export function ContestantGrid({
   episodeId: string;
   isLocked: boolean;
   isEliminated: boolean;
+  onPickSubmitted?: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     new Set(currentPickIds)
@@ -85,6 +87,7 @@ export function ContestantGrid({
         toast.error(result.error);
       } else {
         toast.success("Pick locked in!");
+        onPickSubmitted?.();
       }
     });
   };

@@ -6,7 +6,7 @@ import { getContestantPhotoUrl } from "@/lib/cast";
 import Image from "next/image";
 import type { Contestant, Episode } from "@/lib/types";
 
-type PickStatus =
+export type PickStatus =
   | { kind: "pick-below" }
   | { kind: "picked"; contestant: Pick<Contestant, "name" | "image_url" | "tribe"> }
   | { kind: "locked" }
@@ -16,9 +16,13 @@ type PickStatus =
 export function EpisodeBanner({
   episode,
   pickStatus,
+  isOpen,
+  onToggle,
 }: {
   episode: Episode;
   pickStatus: PickStatus;
+  isOpen: boolean;
+  onToggle: () => void;
 }) {
   const [timeLeft, setTimeLeft] = useState("");
   const [isLocked, setIsLocked] = useState(false);
@@ -51,6 +55,9 @@ export function EpisodeBanner({
     return () => clearInterval(interval);
   }, [episode.air_date]);
 
+  const canToggle =
+    pickStatus.kind !== "eliminated" || true; // always toggleable for browse
+
   return (
     <div className="rounded-xl border border-border/50 bg-card p-4">
       <div className="flex items-center justify-between gap-4">
@@ -78,10 +85,15 @@ export function EpisodeBanner({
           <span>{isLocked ? "Picks locked" : timeLeft}</span>
         </div>
 
-        {/* Right: Pick status */}
-        <div className="shrink-0 text-right">
+        {/* Right: Pick status — clickable toggle */}
+        <button
+          onClick={canToggle ? onToggle : undefined}
+          className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
+            canToggle ? "cursor-pointer hover:bg-accent/50" : ""
+          }`}
+        >
           {pickStatus.kind === "picked" && (
-            <div className="flex items-center gap-2">
+            <>
               <div className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-green-500">
                 <Image
                   src={getContestantPhotoUrl(pickStatus.contestant)}
@@ -90,16 +102,15 @@ export function EpisodeBanner({
                   className="object-cover"
                 />
               </div>
-              <span className="text-sm font-medium text-green-400">
+              <span className="hidden text-sm font-medium text-green-400 sm:inline">
                 {pickStatus.contestant.name.split(" ")[0]}
               </span>
-            </div>
+            </>
           )}
           {pickStatus.kind === "pick-below" && !isLocked && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <ChevronDown className="h-4 w-4" />
-              <span>Pick below</span>
-            </div>
+            <span className="text-sm font-medium text-primary">
+              Pick now
+            </span>
           )}
           {pickStatus.kind === "pick-below" && isLocked && (
             <span className="text-sm text-destructive">No pick</span>
@@ -114,11 +125,16 @@ export function EpisodeBanner({
             <div className="flex items-center gap-1 text-sm text-orange-400">
               <AlertTriangle className="h-4 w-4" />
               <span>
-                {pickStatus.picked}/{pickStatus.required} picks
+                {pickStatus.picked}/{pickStatus.required}
               </span>
             </div>
           )}
-        </div>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
       </div>
     </div>
   );
