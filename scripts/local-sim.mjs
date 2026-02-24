@@ -106,6 +106,83 @@ function pickRandomDistinct(items, count) {
   return selected;
 }
 
+function decodeSqlString(value) {
+  return value.replaceAll("''", "'");
+}
+
+function parseSeedSql(seedSql) {
+  const episodesInsertMatch = seedSql.match(
+    /INSERT\s+INTO\s+episodes\s*\(\s*number\s*,\s*title\s*,\s*air_date\s*\)\s*VALUES\s*([\s\S]*?);/i
+  );
+  if (!episodesInsertMatch) {
+    throw new Error("Could not find episode seed INSERT in seed.sql");
+  }
+
+  const episodes = [];
+  const episodeTupleRegex =
+    /\(\s*(\d+)\s*,\s*'((?:[^']|'{2})*)'\s*,\s*'((?:[^']|'{2})*)'\s*\)/g;
+  let episodeTupleMatch;
+  while ((episodeTupleMatch = episodeTupleRegex.exec(episodesInsertMatch[1])) !== null) {
+    episodes.push({
+      number: Number.parseInt(episodeTupleMatch[1], 10),
+      title: decodeSqlString(episodeTupleMatch[2]),
+      air_date: decodeSqlString(episodeTupleMatch[3]),
+      is_complete: false,
+    });
+  }
+  if (episodes.length === 0) {
+    throw new Error("No episode rows parsed from seed.sql");
+  }
+
+  const contestants = [];
+  const contestantsInsertRegex =
+    /INSERT\s+INTO\s+contestants\s*\(\s*name\s*,\s*tribe\s*,\s*tribe_color\s*,\s*season\s*\)\s*VALUES\s*([\s\S]*?);/gi;
+  let contestantsInsertMatch;
+  while ((contestantsInsertMatch = contestantsInsertRegex.exec(seedSql)) !== null) {
+    const contestantTupleRegex =
+      /\(\s*'((?:[^']|'{2})*)'\s*,\s*'((?:[^']|'{2})*)'\s*,\s*'((?:[^']|'{2})*)'\s*,\s*(\d+)\s*\)/g;
+    let contestantTupleMatch;
+    while (
+      (contestantTupleMatch = contestantTupleRegex.exec(contestantsInsertMatch[1])) !== null
+    ) {
+      contestants.push({
+        name: decodeSqlString(contestantTupleMatch[1]),
+        tribe: decodeSqlString(contestantTupleMatch[2]),
+        tribe_color: decodeSqlString(contestantTupleMatch[3]),
+        season: Number.parseInt(contestantTupleMatch[4], 10),
+        is_eliminated: false,
+        eliminated_at_episode: null,
+      });
+    }
+  }
+  if (contestants.length === 0) {
+    throw new Error("No contestant rows parsed from seed.sql");
+  }
+
+  return { episodes, contestants };
+}
+
+function loadSeedData(options) {
+  const seedFile = options["seed-file"]
+    ? path.resolve(process.cwd(), String(options["seed-file"]))
+    : path.join(process.cwd(), "supabase", "seed.sql");
+
+  if (!existsSync(seedFile)) {
+    throw new Error(`Seed file not found: ${seedFile}`);
+  }
+
+  const seedSql = readFileSync(seedFile, "utf8");
+  const parsed = parseSeedSql(seedSql);
+  return { ...parsed, seedFile };
+}
+
+async function clearTable(admin, tableName) {
+  const { error } = await admin.from(tableName).delete().not("id", "is", null);
+  if (error) {
+    throw new Error(`Failed to clear ${tableName}: ${error.message}`);
+  }
+}
+
 async function findUserByEmail(admin, email) {
   const target = email.toLowerCase();
   let page = 1;
@@ -652,6 +729,7 @@ Commands:
   seed     Seed picks for bots (or active members) for one or more upcoming episodes
   reveal   Move an episode air_date to the past so picks are visible to everyone
   advance  Reveal + complete an episode and apply eliminations in a league
+  reset    Clear sim/game tables and restore episodes + contestants from seed.sql
 
 Examples:
   node scripts/local-sim.mjs setup --host-email you@gmail.com --players 8
@@ -660,11 +738,14 @@ Examples:
   node scripts/local-sim.mjs setup --league-id <league-id> --host-email you@gmail.com --players 6
   node scripts/local-sim.mjs reveal --league-id <league-id>
   node scripts/local-sim.mjs advance --league-id <league-id> --eliminated 2
+  node scripts/local-sim.mjs reset --yes
 
 Common options:
   --episode <n>            Target episode number (default: first incomplete)
   --weeks <n>              Number of consecutive incomplete episodes to seed (seed command)
   --season <n>             Season number (default: 50)
+  --yes                    Required confirmation flag for reset
+  --seed-file <path>       Optional seed file path for reset (default: supabase/seed.sql)
 `);
 }
 
@@ -809,6 +890,36 @@ async function handleAdvance(admin, options) {
   console.log(`Members eliminated by no options left: ${summary.eliminatedByNoOptionsCount}`);
 }
 
+async function handleReset(admin, options) {
+  if (!options.yes) {
+    throw new Error("reset is destructive. Re-run with --yes to confirm.");
+  }
+
+  const { seedFile, episodes, contestants } = loadSeedData(options);
+
+  await clearTable(admin, "picks");
+  await clearTable(admin, "league_members");
+  await clearTable(admin, "leagues");
+  await clearTable(admin, "contestants");
+  await clearTable(admin, "episodes");
+
+  const { error: episodesError } = await admin.from("episodes").insert(episodes);
+  if (episodesError) {
+    throw new Error(`Failed to insert seeded episodes: ${episodesError.message}`);
+  }
+
+  const { error: contestantsError } = await admin.from("contestants").insert(contestants);
+  if (contestantsError) {
+    throw new Error(`Failed to insert seeded contestants: ${contestantsError.message}`);
+  }
+
+  console.log("Reset complete.");
+  console.log(`Seed file: ${seedFile}`);
+  console.log(`Episodes restored: ${episodes.length}`);
+  console.log(`Contestants restored: ${contestants.length}`);
+  console.log("Cleared tables: picks, league_members, leagues, contestants, episodes");
+}
+
 async function main() {
   loadLocalEnv();
   const { command, options } = parseArgs(process.argv.slice(2));
@@ -836,6 +947,10 @@ async function main() {
   }
   if (command === "advance") {
     await handleAdvance(admin, options);
+    return;
+  }
+  if (command === "reset") {
+    await handleReset(admin, options);
     return;
   }
 

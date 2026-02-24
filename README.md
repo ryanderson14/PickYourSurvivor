@@ -36,6 +36,9 @@ npm run sim:seed -- --league-id <league-id> --weeks 3
 
 # 4) Simulate episode completion + eliminations
 npm run sim:advance -- --league-id <league-id> --eliminated 2
+
+# 5) Reset gameplay data and restore original seeded episodes/contestants
+npm run sim:reset -- --yes
 ```
 
 Useful options:
@@ -45,11 +48,26 @@ Useful options:
 - `--weeks <n>`: with `sim:seed`, seed consecutive open episodes
 - `--include-host-pick`: include your host account when seeding picks
 - `--all-members`: with `sim:seed`, seed all active members (not just bots)
+- `--yes`: required confirmation for `sim:reset`
 - `npm run sim:help`: print all simulation commands/options
 
 ## Resetting The Database
 
 Warning: these steps permanently delete data.
+
+Simulation CLI reset (works for hosted or local Supabase when `.env.local` is configured):
+
+```bash
+npm run sim:reset -- --yes
+```
+
+This clears `picks`, `league_members`, `leagues`, `contestants`, and `episodes`, then reloads `episodes` + `contestants` from `supabase/seed.sql`.
+
+Use `--seed-file` to target a different seed SQL file:
+
+```bash
+npm run sim:reset -- --yes --seed-file supabase/seed.sql
+```
 
 Local Supabase reset (if you are running a local Supabase stack):
 
