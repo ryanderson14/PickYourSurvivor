@@ -1,13 +1,20 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { StandingsTable } from "@/components/league/standings-table";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Crown, Settings, Clock } from "lucide-react";
+import type { MemberWithStats } from "@/components/league/standings-table";
+import { EpisodeBanner } from "@/components/league/episode-banner";
+import { ContestantGrid } from "@/components/picks/contestant-grid";
+import { Card, CardContent } from "@/components/ui/card";
+import { Crown, Trophy } from "lucide-react";
 import { CopyButton } from "@/components/league/copy-button";
-import { CountdownTimer } from "@/components/picks/countdown-timer";
+import {
+  getRequiredPicks,
+  arePicksLocked,
+  getCurrentEpisode,
+} from "@/lib/game-logic";
+import { SEASON } from "@/lib/constants";
+import type { Contestant, Episode, Pick as UserPick } from "@/lib/types";
 
 export default async function LeaguePage({
   params,
@@ -22,119 +29,196 @@ export default async function LeaguePage({
 
   if (!user) redirect("/login");
 
-  // Get league
-  const { data: league } = await supabase
-    .from("leagues")
-    .select("*")
-    .eq("id", leagueId)
-    .single();
+  // Fetch all data in parallel
+  const [
+    { data: league },
+    { data: members },
+    { data: episodesData },
+    { data: contestantsData },
+    { data: userPicksData },
+    { data: allLeaguePicksData },
+  ] = await Promise.all([
+    supabase.from("leagues").select("*").eq("id", leagueId).single(),
+    supabase
+      .from("league_members")
+      .select(
+        `
+        *,
+        profile:profiles (
+          id,
+          username,
+          avatar_url
+        )
+      `
+      )
+      .eq("league_id", leagueId)
+      .order("is_eliminated")
+      .order("joined_at"),
+    supabase.from("episodes").select("*").order("number"),
+    supabase
+      .from("contestants")
+      .select("*")
+      .eq("season", SEASON)
+      .order("name"),
+    supabase
+      .from("picks")
+      .select("*, contestant:contestants(name, tribe, tribe_color, image_url, is_eliminated, eliminated_at_episode)")
+      .eq("league_id", leagueId)
+      .eq("user_id", user.id),
+    supabase
+      .from("picks")
+      .select("*, contestant:contestants(name, tribe, tribe_color, image_url, is_eliminated, eliminated_at_episode), episode:episodes(number, is_complete)")
+      .eq("league_id", leagueId),
+  ]);
 
   if (!league) redirect("/dashboard");
 
-  // Get members with profiles
-  const { data: members } = await supabase
-    .from("league_members")
-    .select(
-      `
-      *,
-      profile:profiles (
-        id,
-        username,
-        avatar_url
-      )
-    `
-    )
-    .eq("league_id", leagueId)
-    .order("is_eliminated")
-    .order("joined_at");
+  const episodes = (episodesData ?? []) as Episode[];
+  const allContestants = (contestantsData ?? []) as Contestant[];
+  const userPicks = (userPicksData ?? []) as UserPick[];
+  const allLeaguePicks = (allLeaguePicksData ?? []) as (UserPick & {
+    contestant: Contestant | null;
+    episode: Episode | null;
+  })[];
 
-  // Get current episode
-  const { data: currentEpisode } = await supabase
-    .from("episodes")
-    .select("*")
-    .eq("is_complete", false)
-    .order("number")
-    .limit(1)
-    .single();
-
-  // Get all picks for this league
-  const { data: allPicks } = await supabase
-    .from("picks")
-    .select("*, contestant:contestants(name, tribe, tribe_color)")
-    .eq("league_id", leagueId);
-
-  // Current user's membership
+  const currentEpisode = getCurrentEpisode(episodes);
   const currentMember = members?.find((m) => m.user_id === user.id);
   const isHost = league.host_id === user.id;
 
-  // Check if current user has picked for current episode
-  const currentUserPicks = allPicks?.filter(
-    (p) => p.user_id === user.id && p.episode_id === currentEpisode?.id
-  );
-  const hasPicked = currentUserPicks && currentUserPicks.length > 0;
+  // Completed episodes (for pick history)
+  const completedEpisodes = episodes
+    .filter((e) => e.is_complete)
+    .sort((a, b) => a.number - b.number);
 
-  // Count available contestants for each member
-  const { data: contestants } = await supabase
-    .from("contestants")
-    .select("id")
-    .eq("season", 50)
-    .eq("is_eliminated", false);
+  // Current episode picks
+  const currentUserPicks = currentEpisode
+    ? userPicks.filter((p) => p.episode_id === currentEpisode.id)
+    : [];
 
-  const membersWithStats = members?.map((m) => {
-    const memberPicks = allPicks?.filter((p) => p.user_id === m.user_id) ?? [];
-    const usedIds = new Set(memberPicks.map((p) => p.contestant_id));
-    const available = contestants?.filter((c) => !usedIds.has(c.id)).length ?? 0;
-    return { ...m, picksUsed: memberPicks.length, availableContestants: available };
-  });
+  // Used contestant IDs (across all episodes, excluding current episode picks)
+  const usedContestantIds = userPicks
+    .filter((p) => !currentEpisode || p.episode_id !== currentEpisode.id)
+    .map((p) => p.contestant_id);
 
-  // Check for a winner
-  const activeMembersCount = members?.filter((m) => !m.is_eliminated).length ?? 0;
+  // Required picks
+  const requiredPicks = currentEpisode
+    ? getRequiredPicks(userPicks, episodes, currentEpisode.number)
+    : 1;
+
+  const locked = currentEpisode ? arePicksLocked(currentEpisode) : true;
+  const isUserEliminated = currentMember?.is_eliminated ?? false;
+  const seasonComplete = !currentEpisode;
+
+  // Winner check
+  const activeMembersCount =
+    members?.filter((m) => !m.is_eliminated).length ?? 0;
   const winner =
-    activeMembersCount === 1
-      ? members?.find((m) => !m.is_eliminated)
-      : null;
+    activeMembersCount === 1 ? members?.find((m) => !m.is_eliminated) : null;
+
+  // Build pick status for episode banner
+  const pickStatus = (() => {
+    if (isUserEliminated) return { kind: "eliminated" as const };
+    if (locked) return { kind: "locked" as const };
+    if (requiredPicks > 1 && currentUserPicks.length > 0) {
+      return {
+        kind: "debt" as const,
+        required: requiredPicks,
+        picked: currentUserPicks.length,
+      };
+    }
+    if (requiredPicks > 1) {
+      return {
+        kind: "debt" as const,
+        required: requiredPicks,
+        picked: 0,
+      };
+    }
+    if (currentUserPicks.length > 0 && currentUserPicks[0].contestant) {
+      return {
+        kind: "picked" as const,
+        contestant: currentUserPicks[0].contestant as Pick<Contestant, "name" | "image_url" | "tribe">,
+      };
+    }
+    return { kind: "pick-below" as const };
+  })();
+
+  // Build pick history for each member
+  const membersWithStats: MemberWithStats[] = (members ?? []).map((m) => {
+    const memberPicks = allLeaguePicks.filter((p) => p.user_id === m.user_id);
+    const memberUsedIds = new Set(memberPicks.map((p) => p.contestant_id));
+    const available = allContestants.filter(
+      (c) => !c.is_eliminated && !memberUsedIds.has(c.id)
+    ).length;
+
+    // Build pick history from completed episodes
+    const pickHistory = completedEpisodes.map((ep) => {
+      const pick = memberPicks.find(
+        (p) => p.episode && (p.episode as Episode).number === ep.number
+      );
+
+      if (!pick || !pick.contestant) {
+        return {
+          episodeNumber: ep.number,
+          contestant: null,
+          survived: false,
+          missed: true,
+        };
+      }
+
+      const contestant = pick.contestant as Contestant;
+      const wasEliminated =
+        contestant.eliminated_at_episode === ep.number;
+
+      return {
+        episodeNumber: ep.number,
+        contestant: {
+          name: contestant.name,
+          image_url: contestant.image_url,
+          tribe: contestant.tribe,
+        },
+        survived: !wasEliminated,
+        missed: false,
+      };
+    });
+
+    return {
+      user_id: m.user_id,
+      is_eliminated: m.is_eliminated,
+      eliminated_at_episode: m.eliminated_at_episode,
+      picksUsed: memberPicks.length,
+      availableContestants: available,
+      profile: m.profile as { id: string; username: string; avatar_url: string | null },
+      pickHistory,
+    };
+  });
 
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
         {/* League Header */}
-        <div className="mb-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold">
-                {league.name}
-                {isHost && <Crown className="h-5 w-5 text-yellow-500" />}
-              </h1>
-              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                <span>Season {league.season}</span>
-                <span>{members?.length ?? 0} players</span>
-                <div className="flex items-center gap-1">
-                  <span>Code: {league.invite_code}</span>
-                  <CopyButton text={league.invite_code} />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {isHost && (
-                <Link href={`/league/${leagueId}/admin`}>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Settings className="h-4 w-4" />
-                    Admin
-                  </Button>
-                </Link>
-              )}
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            {league.name}
+            {isHost && <Crown className="h-5 w-5 text-yellow-500" />}
+          </h1>
+          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+            <span>Season {league.season}</span>
+            <span>{members?.length ?? 0} players</span>
+            <div className="flex items-center gap-1">
+              <span>Code: {league.invite_code}</span>
+              <CopyButton text={league.invite_code} />
             </div>
           </div>
         </div>
 
         {/* Winner Banner */}
         {winner && (
-          <Card className="mb-6 border-primary bg-primary/10">
+          <Card className="border-yellow-500/50 bg-yellow-500/10">
             <CardContent className="flex items-center gap-3 p-5">
-              <span className="text-3xl">🏆</span>
+              <Trophy className="h-8 w-8 text-yellow-500" />
               <div>
-                <p className="font-semibold text-primary">
+                <p className="font-semibold text-yellow-400">
                   {(winner.profile as { username: string }).username} wins!
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -145,69 +229,53 @@ export default async function LeaguePage({
           </Card>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main content */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Standings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <StandingsTable members={membersWithStats ?? []} currentUserId={user.id} />
-              </CardContent>
-            </Card>
-          </div>
+        {/* Episode Banner */}
+        {currentEpisode && (
+          <EpisodeBanner episode={currentEpisode} pickStatus={pickStatus} />
+        )}
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Current Episode */}
-            {currentEpisode && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">
-                    Episode {currentEpisode.number}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <CountdownTimer airDate={currentEpisode.air_date} />
-                  {!currentMember?.is_eliminated && (
-                    <Link href={`/league/${leagueId}/picks`}>
-                      <Button
-                        className="w-full"
-                        variant={hasPicked ? "outline" : "default"}
-                      >
-                        {hasPicked ? "Change Picks" : "Make Your Pick"}
-                      </Button>
-                    </Link>
-                  )}
-                  {hasPicked && currentUserPicks && (
-                    <div className="text-sm text-muted-foreground">
-                      You picked:{" "}
-                      {currentUserPicks
-                        .map(
-                          (p) =>
-                            (p.contestant as { name: string })?.name ?? "Unknown"
-                        )
-                        .join(", ")}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+        {/* Season Complete */}
+        {seasonComplete && !winner && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-lg font-medium text-muted-foreground">
+                Season Complete
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Quick Links */}
-            <Card>
-              <CardContent className="space-y-2 p-4">
-                <Link href={`/league/${leagueId}/history`}>
-                  <Button variant="ghost" className="w-full justify-start gap-2">
-                    <Clock className="h-4 w-4" />
-                    Pick History
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* Contestant Grid (inline) */}
+        {!seasonComplete && currentEpisode && (
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">
+              {isUserEliminated
+                ? "Contestants"
+                : locked
+                  ? "This Week's Contestants"
+                  : "Make Your Pick"}
+            </h2>
+            <ContestantGrid
+              contestants={allContestants}
+              usedContestantIds={usedContestantIds}
+              currentPickIds={currentUserPicks.map((p) => p.contestant_id)}
+              requiredPicks={requiredPicks}
+              leagueId={leagueId}
+              episodeId={currentEpisode.id}
+              isLocked={locked}
+              isEliminated={isUserEliminated}
+            />
+          </section>
+        )}
+
+        {/* Standings + Pick History */}
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Standings</h2>
+          <StandingsTable
+            members={membersWithStats}
+            currentUserId={user.id}
+          />
+        </section>
       </main>
     </div>
   );
