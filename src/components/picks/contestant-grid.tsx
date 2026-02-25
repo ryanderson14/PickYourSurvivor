@@ -111,7 +111,7 @@ export function ContestantGrid({
             {selected.size} of {requiredPicks} selected
           </span>
           <span className="text-orange-400/70">
-            — {requiredPicks - 1} missed week{requiredPicks > 2 ? "s" : ""}
+            — {requiredPicks - 1} consecutive missed week{requiredPicks > 2 ? "s" : ""}
           </span>
         </div>
       )}

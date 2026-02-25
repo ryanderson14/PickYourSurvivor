@@ -50,7 +50,7 @@ const rules = [
     bgClass: "bg-blue-500/10",
     title: "Missed a Week? Catch Up",
     description:
-      "If you miss an episode, you carry a \"pick debt.\" You'll need to make extra picks the following week — one for each episode missed.",
+      "If you miss episodes in a row, you carry a \"pick debt.\" You'll need extra picks next week — one for each consecutive episode missed right before it.",
   },
   {
     icon: AlertTriangle,

@@ -3,37 +3,30 @@ import { MAX_CONSECUTIVE_MISSES } from "./constants";
 
 /**
  * Calculate how many picks a player must make this episode.
- * Base 1 + 1 for each past episode they missed.
+ * Base 1 + 1 for each consecutive missed episode immediately before this one.
  */
 export function getRequiredPicks(
   allPicks: Pick[],
   episodes: Episode[],
   currentEpisodeNumber: number
 ): number {
-  let missedWeeks = 0;
-  for (let ep = 1; ep < currentEpisodeNumber; ep++) {
-    const episode = episodes.find((e) => e.number === ep);
-    if (!episode) continue;
-    const picksForEp = allPicks.filter((p) => p.episode_id === episode.id);
-    if (picksForEp.length === 0) missedWeeks++;
-  }
-  return 1 + missedWeeks;
+  return 1 + getConsecutiveMisses(allPicks, episodes, currentEpisodeNumber);
 }
 
 /**
- * Count consecutive missed episodes going backwards from the current one.
+ * Count consecutive missed episodes immediately before the current one.
  */
 export function getConsecutiveMisses(
   allPicks: Pick[],
   episodes: Episode[],
   currentEpisodeNumber: number
 ): number {
+  const pickedEpisodeIds = new Set(allPicks.map((p) => p.episode_id));
   let consecutive = 0;
   for (let ep = currentEpisodeNumber - 1; ep >= 1; ep--) {
     const episode = episodes.find((e) => e.number === ep);
     if (!episode) continue;
-    const picksForEp = allPicks.filter((p) => p.episode_id === episode.id);
-    if (picksForEp.length === 0) {
+    if (!pickedEpisodeIds.has(episode.id)) {
       consecutive++;
     } else {
       break;

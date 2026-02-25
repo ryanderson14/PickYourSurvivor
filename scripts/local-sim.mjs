@@ -358,22 +358,27 @@ async function addMembers(admin, leagueId, userIds) {
 /**
  * Calculate how many picks a user owes for this episode.
  * Matches the app logic in src/lib/game-logic.ts getRequiredPicks():
- *   required = 1 + number of past episodes with zero picks
+ *   required = 1 + consecutive missed episodes immediately before this one
  */
 function getRequiredPicks(userPicksByEpisodeId, pastEpisodeIds) {
-  let missedWeeks = 0;
-  for (const epId of pastEpisodeIds) {
-    const hasPick = userPicksByEpisodeId.has(epId);
-    if (!hasPick) missedWeeks++;
+  let consecutiveMisses = 0;
+  for (let i = pastEpisodeIds.length - 1; i >= 0; i--) {
+    const epId = pastEpisodeIds[i];
+    if (!userPicksByEpisodeId.has(epId)) {
+      consecutiveMisses++;
+      continue;
+    }
+    break;
   }
-  return 1 + missedWeeks;
+  return 1 + consecutiveMisses;
 }
 
 /**
  * Seed picks for one episode with realistic miss patterns and makeup picks.
  *
- * When a player decides to pick this week, they submit (1 + missedWeeks) picks,
- * all tied to the current episode, each a different contestant they haven't used.
+ * When a player decides to pick this week, they submit:
+ *   1 + consecutive missed episodes immediately before this one.
+ * All picks are tied to the current episode, each a different unused contestant.
  *
  * @param missRate - probability [0,1] that a given bot skips this episode
  * @param forcePickUserIds - user IDs that must always pick (e.g. real user)
@@ -685,7 +690,7 @@ async function handleGo(admin, options) {
     const activeUserIds = (activeMembers ?? []).map((m) => m.user_id);
 
     // Seed picks — bots pick with miss rate, real user always picks
-    // Players who missed previous weeks owe extra picks (1 + missedWeeks)
+    // Players owe extra picks only for consecutive missed weeks immediately prior.
     const pickResult = await seedPicksForEpisode(admin, {
       leagueId: LEAGUE_ID,
       episodeId: ep.id,
@@ -704,7 +709,7 @@ async function handleGo(admin, options) {
     );
     if (makeupPickers.length > 0) {
       for (const d of makeupPickers) {
-        log(`  ↳ makeup: ${d.submitted} picks (owed ${d.required}, missed ${d.required - 1} prior week${d.required > 2 ? "s" : ""})`);
+        log(`  ↳ makeup: ${d.submitted} picks (owed ${d.required}, missed ${d.required - 1} consecutive prior week${d.required > 2 ? "s" : ""})`);
       }
     }
 
