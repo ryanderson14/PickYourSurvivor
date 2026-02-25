@@ -250,6 +250,8 @@ export function StandingsTable({
                 <div className="overflow-hidden">
                   <div className="border-t border-border/30 px-3 pb-3 pt-2 pl-14">
                     <div className="space-y-1">
+                      {/* Past pick history */}
+                      <PickHistoryList history={member.pickHistory} />
                       {/* Current locked episode pick — pending outcome */}
                       {currentPicks && currentEpisodeNumber !== undefined && (
                         currentPicks.map((c, i) => (
@@ -279,8 +281,6 @@ export function StandingsTable({
                           </div>
                         ))
                       )}
-                      {/* Past pick history */}
-                      <PickHistoryList history={member.pickHistory} />
                     </div>
                   </div>
                 </div>
