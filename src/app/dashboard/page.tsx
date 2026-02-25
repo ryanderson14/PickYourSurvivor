@@ -46,6 +46,11 @@ export default async function DashboardPage() {
     console.error("[dashboard.league_members.select]", membershipsError);
   }
 
+  // If the user is only in one league, skip the picker and go straight there.
+  if (!membershipsError && memberships?.length === 1) {
+    redirect(`/league/${memberships[0].league_id}`);
+  }
+
   // Get current episode
   const { data: currentEpisode } = await supabase
     .from("episodes")
