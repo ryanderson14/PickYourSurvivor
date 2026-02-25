@@ -7,11 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "sim:go": "node scripts/local-sim.mjs go",
+    "sim:reset": "node scripts/local-sim.mjs reset",
     "sim:setup": "node scripts/local-sim.mjs setup",
     "sim:seed": "node scripts/local-sim.mjs seed",
     "sim:reveal": "node scripts/local-sim.mjs reveal",
     "sim:advance": "node scripts/local-sim.mjs advance",
-    "sim:reset": "node scripts/local-sim.mjs reset",
     "sim:help": "node scripts/local-sim.mjs help"
   },
   "dependencies": {
