@@ -182,7 +182,7 @@ export function StandingsTable({
                   )}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="ml-2 flex shrink-0 items-center gap-2">
                 {member.is_eliminated ? (
                   <Badge variant="destructive" className="gap-1 text-xs">
                     <Skull className="h-3 w-3" />
@@ -222,12 +222,20 @@ export function StandingsTable({
                       No pick
                     </Badge>
                   )
-                ) : (
-                  <Badge variant="secondary" className="gap-1 text-xs">
-                    <Shield className="h-3 w-3" />
-                    {member.availableContestants} left
-                  </Badge>
-                )}
+                ) : null}
+                <div
+                  className={`inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium ${
+                    member.is_eliminated
+                      ? "border-border/40 bg-background/40 text-muted-foreground/80"
+                      : "border-primary/20 bg-primary/10 text-primary"
+                  }`}
+                  aria-label={`${member.availableContestants} picks remaining`}
+                  title={`${member.availableContestants} picks remaining`}
+                >
+                  <Shield className="h-3 w-3" />
+                  <span className="tabular-nums">{member.availableContestants}</span>
+                  <span className="hidden sm:inline">left</span>
+                </div>
                 {isExpandable && (
                   <ChevronDown
                     className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
