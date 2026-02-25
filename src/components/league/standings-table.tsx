@@ -98,6 +98,7 @@ export function StandingsTable({
   episodeWindowOpen = false,
   pickedUserIds = [],
   lockedEpisodePicks,
+  currentEpisodeNumber,
 }: {
   members: MemberWithStats[];
   currentUserId: string;
@@ -107,6 +108,7 @@ export function StandingsTable({
     user_id: string;
     contestants: Pick<Contestant, "name" | "image_url" | "tribe">[];
   }>;
+  currentEpisodeNumber?: number;
 }) {
   const pickedSet = new Set(pickedUserIds);
   const lockedPicksMap = new Map(
@@ -140,6 +142,8 @@ export function StandingsTable({
         const isCurrentUser = member.user_id === currentUserId;
         const isExpanded = expandedRows.has(member.user_id);
         const hasHistory = member.pickHistory.length > 0;
+        const currentPicks = lockedPicksMap.get(member.user_id);
+        const isExpandable = hasHistory || !!currentPicks;
 
         return (
           <div
@@ -154,17 +158,17 @@ export function StandingsTable({
           >
             {/* Identity bar */}
             <button
-              onClick={hasHistory ? () => toggleExpand(member.user_id) : undefined}
-              className={`flex w-full items-center gap-3 p-3 text-left ${
-                hasHistory ? "cursor-pointer" : ""
+              onClick={isExpandable ? () => toggleExpand(member.user_id) : undefined}
+              className={`flex w-full items-center gap-3 p-4 text-left ${
+                isExpandable ? "cursor-pointer" : ""
               }`}
             >
               <span className="w-6 text-center text-sm font-medium text-muted-foreground">
                 {index + 1}
               </span>
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={member.profile.avatar_url ?? undefined} />
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-sm">
                   {member.profile.username?.[0]?.toUpperCase() ?? "?"}
                 </AvatarFallback>
               </Avatar>
@@ -196,30 +200,22 @@ export function StandingsTable({
                     </Badge>
                   )
                 ) : lockedEpisodePicks !== undefined ? (
-                  lockedPicksMap.has(member.user_id) ? (
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex -space-x-1.5">
-                        {lockedPicksMap.get(member.user_id)!.map((c, i) => (
-                          <div
-                            key={i}
-                            className="relative h-6 w-6 overflow-hidden rounded-full border border-background"
-                          >
-                            <Image
-                              src={getContestantPhotoUrl(c)}
-                              alt={c.name}
-                              fill
-                              sizes="24px"
-                              className="object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {lockedPicksMap
-                          .get(member.user_id)!
-                          .map((c) => c.name.split(" ")[0])
-                          .join(" & ")}
-                      </span>
+                  currentPicks ? (
+                    <div className="flex -space-x-1.5">
+                      {currentPicks.map((c, i) => (
+                        <div
+                          key={i}
+                          className="relative h-7 w-7 overflow-hidden rounded-full border-2 border-background"
+                        >
+                          <Image
+                            src={getContestantPhotoUrl(c)}
+                            alt={c.name}
+                            fill
+                            sizes="28px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <Badge variant="outline" className="text-xs text-muted-foreground/50">
@@ -232,7 +228,7 @@ export function StandingsTable({
                     {member.availableContestants} left
                   </Badge>
                 )}
-                {hasHistory && (
+                {isExpandable && (
                   <ChevronDown
                     className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
                       isExpanded ? "rotate-180" : ""
@@ -242,8 +238,8 @@ export function StandingsTable({
               </div>
             </button>
 
-            {/* Pick history — collapsible vertical list */}
-            {hasHistory && (
+            {/* Expanded: current episode pick (pending) + past history */}
+            {isExpandable && (
               <div
                 className={`grid transition-all duration-200 ease-in-out ${
                   isExpanded
@@ -252,8 +248,43 @@ export function StandingsTable({
                 }`}
               >
                 <div className="overflow-hidden">
-                  <div className="border-t border-border/30 px-3 pb-3 pt-2 pl-12">
-                    <PickHistoryList history={member.pickHistory} />
+                  <div className="border-t border-border/30 px-3 pb-3 pt-2 pl-14">
+                    <div className="space-y-1">
+                      {/* Current locked episode pick — pending outcome */}
+                      {currentPicks && currentEpisodeNumber !== undefined && (
+                        currentPicks.map((c, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 rounded-r-lg border-l-2 border-l-muted-foreground/20 py-1.5 pl-3"
+                          >
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-muted-foreground/20 grayscale">
+                              <Image
+                                src={getContestantPhotoUrl(c)}
+                                alt={c.name}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline gap-2">
+                                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                  Ep. {currentEpisodeNumber}
+                                </span>
+                                <span className="truncate text-sm font-medium text-muted-foreground">
+                                  {c.name}
+                                </span>
+                                <span className="text-xs text-muted-foreground/50">
+                                  · pending
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      {/* Past pick history */}
+                      <PickHistoryList history={member.pickHistory} />
+                    </div>
                   </div>
                 </div>
               </div>

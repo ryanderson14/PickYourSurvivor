@@ -343,6 +343,7 @@ export default async function LeaguePage({
             episodeWindowOpen={!!currentEpisode && !locked}
             pickedUserIds={pickedUserIds}
             lockedEpisodePicks={lockedEpisodePicks}
+            currentEpisodeNumber={currentEpisode?.number}
           />
         </section>
       </main>
