@@ -108,11 +108,15 @@ export default async function LeaguePage({
   const isUserEliminated = currentMember?.is_eliminated ?? false;
   const seasonComplete = !currentEpisode;
 
-  // Winner check
+  // Winner check — only declare a winner when multiple players competed
+  // and exactly one remains. A solo player in an otherwise-empty league is not a winner.
+  const totalMembersCount = members?.length ?? 0;
   const activeMembersCount =
     members?.filter((m) => !m.is_eliminated).length ?? 0;
   const winner =
-    activeMembersCount === 1 ? members?.find((m) => !m.is_eliminated) : null;
+    totalMembersCount > 1 && activeMembersCount === 1
+      ? members?.find((m) => !m.is_eliminated)
+      : null;
 
   // Build pick status for episode banner
   const pickStatus = (() => {
