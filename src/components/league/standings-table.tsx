@@ -118,11 +118,33 @@ export function StandingsTable({
 
   const sorted = [...members].sort((a, b) => {
     if (a.is_eliminated !== b.is_eliminated) return a.is_eliminated ? 1 : -1;
-    if (!a.is_eliminated && !b.is_eliminated) {
-      return b.availableContestants - a.availableContestants;
-    }
-    return (b.eliminated_at_episode ?? 0) - (a.eliminated_at_episode ?? 0);
+    const remainingDiff = b.availableContestants - a.availableContestants;
+    if (remainingDiff !== 0) return remainingDiff;
+    return a.profile.username.localeCompare(b.profile.username, undefined, {
+      sensitivity: "base",
+    });
   });
+
+  const ranked = sorted.reduce<Array<{ member: MemberWithStats; rank: number }>>(
+    (acc, member, index) => {
+      if (index === 0) {
+        acc.push({ member, rank: 1 });
+        return acc;
+      }
+
+      const prev = acc[index - 1];
+      const isTie =
+        prev.member.is_eliminated === member.is_eliminated &&
+        prev.member.availableContestants === member.availableContestants;
+
+      acc.push({
+        member,
+        rank: isTie ? prev.rank : prev.rank + 1,
+      });
+      return acc;
+    },
+    []
+  );
 
   const toggleExpand = (userId: string) => {
     setExpandedRows((prev) => {
@@ -138,7 +160,7 @@ export function StandingsTable({
 
   return (
     <div className="space-y-2">
-      {sorted.map((member, index) => {
+      {ranked.map(({ member, rank }) => {
         const isCurrentUser = member.user_id === currentUserId;
         const isExpanded = expandedRows.has(member.user_id);
         const hasHistory = member.pickHistory.length > 0;
@@ -169,7 +191,7 @@ export function StandingsTable({
               }`}
             >
               <span className="w-6 text-center text-sm font-medium text-muted-foreground">
-                {index + 1}
+                {rank}
               </span>
               <Avatar className="h-10 w-10">
                 <AvatarImage src={member.profile.avatar_url ?? undefined} />
