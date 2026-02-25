@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Flame, Shield, Users, Trophy } from "lucide-react";
+import { SignInButton } from "@/components/auth/sign-in-button";
+import { GetStartedCta } from "@/components/landing/get-started-cta";
 
 export default function Home() {
   return (
@@ -11,11 +11,7 @@ export default function Home() {
           <Flame className="h-6 w-6 text-primary" />
           <span className="text-lg font-bold">Pick Your Survivor</span>
         </div>
-        <Link href="/login">
-          <Button variant="outline" size="sm">
-            Sign In
-          </Button>
-        </Link>
+        <SignInButton next="/dashboard" />
       </header>
 
       {/* Hero */}
@@ -37,12 +33,8 @@ export default function Home() {
             voted out, so do you. Last one standing wins.
           </p>
 
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/login">
-              <Button size="lg" className="w-full text-base sm:w-auto">
-                Get Started
-              </Button>
-            </Link>
+          <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row sm:justify-center">
+            <GetStartedCta />
           </div>
         </div>
 

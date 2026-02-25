@@ -12,11 +12,13 @@ import {
   getRequiredPicks,
   arePicksLocked,
   getCurrentEpisode,
+  getPickLockDate,
 } from "@/lib/game-logic";
 import { SEASON } from "@/lib/constants";
 import type { Contestant, Episode, Pick as UserPick } from "@/lib/types";
 
 function formatLockTime(airDate: string): string {
+  const lockDate = getPickLockDate(airDate);
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -25,7 +27,7 @@ function formatLockTime(airDate: string): string {
     minute: "2-digit",
     timeZone: "America/New_York",
     timeZoneName: "short",
-  }).format(new Date(airDate));
+  }).format(lockDate);
 }
 
 export default async function LeaguePage({
@@ -99,7 +101,7 @@ export default async function LeaguePage({
   const locked = currentEpisode ? arePicksLocked(currentEpisode) : true;
 
   // Who has submitted a pick for the current open episode.
-  // Uses the admin client because RLS hides other players' picks until the episode airs.
+  // Uses the admin client because RLS hides other players' picks until lock time.
   // We only fetch user_id (not contestant) so no picks are revealed early.
   let pickedUserIds: string[] = [];
   if (currentEpisode && !locked) {

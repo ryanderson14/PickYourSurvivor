@@ -1,6 +1,9 @@
 import type { Contestant, Episode, Pick } from "./types";
 import { MAX_CONSECUTIVE_MISSES } from "./constants";
 
+export const PICK_LOCK_GRACE_MINUTES = 10;
+const PICK_LOCK_GRACE_MS = PICK_LOCK_GRACE_MINUTES * 60 * 1000;
+
 /**
  * Calculate how many picks a player must make this episode.
  * Base 1 + 1 for each consecutive missed episode immediately before this one.
@@ -70,15 +73,37 @@ export function getCurrentEpisode(episodes: Episode[]): Episode | null {
 }
 
 /**
- * Check if picks are locked for an episode (past air date).
+ * Get the exact lock timestamp for an episode air date.
+ * Picks lock 10 minutes after airtime.
+ */
+export function getPickLockDate(airDate: string): Date {
+  return new Date(new Date(airDate).getTime() + PICK_LOCK_GRACE_MS);
+}
+
+/**
+ * Check if picks are locked for a given episode air date.
+ */
+export function arePicksLockedByAirDate(airDate: string): boolean {
+  return getPickLockDate(airDate).getTime() <= Date.now();
+}
+
+/**
+ * Check if picks are locked for an episode.
  */
 export function arePicksLocked(episode: Episode): boolean {
-  return new Date(episode.air_date) <= new Date();
+  return arePicksLockedByAirDate(episode.air_date);
+}
+
+/**
+ * Get time remaining until picks lock for a given episode air date, in milliseconds.
+ */
+export function getTimeUntilLockByAirDate(airDate: string): number {
+  return Math.max(0, getPickLockDate(airDate).getTime() - Date.now());
 }
 
 /**
  * Get time remaining until picks lock, in milliseconds.
  */
 export function getTimeUntilLock(episode: Episode): number {
-  return Math.max(0, new Date(episode.air_date).getTime() - Date.now());
+  return getTimeUntilLockByAirDate(episode.air_date);
 }

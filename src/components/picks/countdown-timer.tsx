@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Clock, Lock } from "lucide-react";
+import { getTimeUntilLockByAirDate } from "@/lib/game-logic";
 
 export function CountdownTimer({ airDate }: { airDate: string }) {
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -9,12 +10,13 @@ export function CountdownTimer({ airDate }: { airDate: string }) {
 
   useEffect(() => {
     const update = () => {
-      const diff = new Date(airDate).getTime() - Date.now();
+      const diff = getTimeUntilLockByAirDate(airDate);
       if (diff <= 0) {
         setIsLocked(true);
         setTimeLeft("Locked");
         return;
       }
+      setIsLocked(false);
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);

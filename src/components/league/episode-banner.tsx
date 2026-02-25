@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, Lock, AlertTriangle, ChevronDown, Check } from "lucide-react";
 import { getContestantPhotoUrl } from "@/lib/cast";
+import { getTimeUntilLockByAirDate } from "@/lib/game-logic";
 import Image from "next/image";
 import type { Contestant, Episode } from "@/lib/types";
 
@@ -29,12 +30,13 @@ export function EpisodeBanner({
 
   useEffect(() => {
     const update = () => {
-      const diff = new Date(episode.air_date).getTime() - Date.now();
+      const diff = getTimeUntilLockByAirDate(episode.air_date);
       if (diff <= 0) {
         setIsLocked(true);
         setTimeLeft("Locked");
         return;
       }
+      setIsLocked(false);
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
@@ -90,7 +92,7 @@ export function EpisodeBanner({
             {isLocked
               ? "Picks locked"
               : pickStatus.kind === "picked"
-                ? "Pick locked in"
+                ? "Pick submitted"
                 : timeLeft}
           </span>
         </div>

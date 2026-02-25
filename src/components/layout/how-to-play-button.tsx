@@ -40,9 +40,9 @@ const rules = [
     icon: Clock,
     iconClass: "text-orange-400",
     bgClass: "bg-orange-500/10",
-    title: "Picks Lock at Airtime",
+    title: "Picks Lock 10 Minutes After Airtime",
     description:
-      "You must submit your pick before the episode airs. Once it's locked, no changes can be made.",
+      "You can submit or change picks until 10 minutes after the episode starts. After that, picks are locked and can't be changed.",
   },
   {
     icon: Repeat2,

@@ -91,7 +91,7 @@ export function ContestantGrid({
       if (result?.error) {
         toast.error(result.error);
       } else {
-        toast.success("Pick locked in!");
+        toast.success("Pick submitted!");
         haptic(20);
         onPickSubmitted?.();
       }

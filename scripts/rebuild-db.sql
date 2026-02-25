@@ -180,7 +180,7 @@ CREATE POLICY "picks_select" ON picks
     OR EXISTS (
       SELECT 1 FROM episodes
       WHERE episodes.id = picks.episode_id
-      AND episodes.air_date <= now()
+      AND episodes.air_date + interval '10 minutes' <= now()
     )
   );
 CREATE POLICY "picks_insert" ON picks
@@ -189,7 +189,7 @@ CREATE POLICY "picks_insert" ON picks
     AND EXISTS (
       SELECT 1 FROM episodes
       WHERE episodes.id = picks.episode_id
-      AND episodes.air_date > now()
+      AND episodes.air_date + interval '10 minutes' > now()
     )
     AND EXISTS (
       SELECT 1 FROM league_members
@@ -204,7 +204,7 @@ CREATE POLICY "picks_delete" ON picks
     AND EXISTS (
       SELECT 1 FROM episodes
       WHERE episodes.id = picks.episode_id
-      AND episodes.air_date > now()
+      AND episodes.air_date + interval '10 minutes' > now()
     )
   );
 

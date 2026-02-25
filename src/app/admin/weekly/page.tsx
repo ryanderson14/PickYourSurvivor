@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SEASON } from "@/lib/constants";
+import { getPickLockDate, PICK_LOCK_GRACE_MINUTES } from "@/lib/game-logic";
 import {
   OWNER_UNLOCK_COOKIE,
   hasOwnerSecretConfigured,
@@ -23,6 +24,7 @@ function readParam(
 }
 
 function formatEpisodeLockTime(airDate: string): string {
+  const lockDate = getPickLockDate(airDate);
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -31,7 +33,7 @@ function formatEpisodeLockTime(airDate: string): string {
     minute: "2-digit",
     timeZone: "America/New_York",
     timeZoneName: "short",
-  }).format(new Date(airDate));
+  }).format(lockDate);
 }
 
 export default async function WeeklyAdminPage({
@@ -168,7 +170,8 @@ export default async function WeeklyAdminPage({
                     {currentEpisode.title ? ` - ${currentEpisode.title}` : ""}
                   </CardTitle>
                   <CardDescription>
-                    Picks lock: {formatEpisodeLockTime(currentEpisode.air_date)}
+                    Picks lock ({PICK_LOCK_GRACE_MINUTES} min after airtime):{" "}
+                    {formatEpisodeLockTime(currentEpisode.air_date)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

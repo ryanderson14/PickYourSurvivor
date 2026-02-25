@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { arePicksLockedByAirDate } from "@/lib/game-logic";
 
 function logSupabaseError(context: string, error: PostgrestError) {
   console.error(`[${context}] ${error.message}`, {
@@ -108,7 +109,7 @@ export async function submitPicks(
     .eq("id", episodeId)
     .single();
 
-  if (!episode || new Date(episode.air_date) <= new Date()) {
+  if (!episode || arePicksLockedByAirDate(episode.air_date)) {
     return { error: "Picks are locked for this episode" };
   }
 
@@ -140,4 +141,3 @@ export async function submitPicks(
   revalidatePath(`/league/${leagueId}`);
   return { success: true };
 }
-

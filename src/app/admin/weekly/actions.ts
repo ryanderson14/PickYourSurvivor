@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { MAX_CONSECUTIVE_MISSES } from "@/lib/constants";
+import { arePicksLockedByAirDate } from "@/lib/game-logic";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -233,7 +234,7 @@ export async function publishWeeklyUpdate(formData: FormData) {
     redirect(adminUrl("error", "Episode already completed or unavailable."));
   }
 
-  if (new Date(episode.air_date) > new Date()) {
+  if (!arePicksLockedByAirDate(episode.air_date)) {
     redirect(adminUrl("error", "Cannot close an episode before picks lock."));
   }
 
