@@ -112,6 +112,38 @@ export default async function LeaguePage({
     pickedUserIds = [...new Set((episodePickUsers ?? []).map((p) => p.user_id))];
   }
 
+  // After lock time passes, reveal everyone's picks for the current episode.
+  let lockedEpisodePicks:
+    | Array<{
+        user_id: string;
+        contestants: Pick<Contestant, "name" | "image_url" | "tribe">[];
+      }>
+    | undefined;
+  if (currentEpisode && locked) {
+    const admin = createAdminClient();
+    const { data: episodePickData } = await admin
+      .from("picks")
+      .select("user_id, contestant:contestants(name, tribe, image_url)")
+      .eq("league_id", leagueId)
+      .eq("episode_id", currentEpisode.id);
+    const byUser = new Map<
+      string,
+      Pick<Contestant, "name" | "image_url" | "tribe">[]
+    >();
+    for (const pick of episodePickData ?? []) {
+      const c = pick.contestant as Pick<
+        Contestant,
+        "name" | "image_url" | "tribe"
+      > | null;
+      if (!c) continue;
+      if (!byUser.has(pick.user_id)) byUser.set(pick.user_id, []);
+      byUser.get(pick.user_id)!.push(c);
+    }
+    lockedEpisodePicks = Array.from(byUser.entries()).map(
+      ([user_id, contestants]) => ({ user_id, contestants })
+    );
+  }
+
   // Progress stats for the header
   const totalEpisodes = episodes.length;
   const survivorsRemaining = allContestants.filter((c) => !c.is_eliminated).length;
@@ -310,6 +342,7 @@ export default async function LeaguePage({
             currentUserId={user.id}
             episodeWindowOpen={!!currentEpisode && !locked}
             pickedUserIds={pickedUserIds}
+            lockedEpisodePicks={lockedEpisodePicks}
           />
         </section>
       </main>

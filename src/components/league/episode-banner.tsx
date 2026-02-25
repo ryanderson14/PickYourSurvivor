@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, Lock, AlertTriangle, ChevronDown } from "lucide-react";
+import { Clock, Lock, AlertTriangle, ChevronDown, Check } from "lucide-react";
 import { getContestantPhotoUrl } from "@/lib/cast";
 import Image from "next/image";
 import type { Contestant, Episode } from "@/lib/types";
@@ -69,20 +69,30 @@ export function EpisodeBanner({
           <p className="text-2xl font-bold">{episode.number}</p>
         </div>
 
-        {/* Center: Countdown */}
+        {/* Center: Countdown / pick status */}
         <div
           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
             isLocked
               ? "bg-destructive/10 text-destructive"
-              : "bg-primary/10 text-primary"
+              : pickStatus.kind === "picked"
+                ? "bg-green-500/10 text-green-400"
+                : "bg-primary/10 text-primary"
           }`}
         >
           {isLocked ? (
             <Lock className="h-4 w-4" />
+          ) : pickStatus.kind === "picked" ? (
+            <Check className="h-4 w-4" />
           ) : (
             <Clock className="h-4 w-4" />
           )}
-          <span>{isLocked ? "Picks locked" : timeLeft}</span>
+          <span>
+            {isLocked
+              ? "Picks locked"
+              : pickStatus.kind === "picked"
+                ? "Pick locked in"
+                : timeLeft}
+          </span>
         </div>
 
         {/* Right: Pick status — clickable toggle */}

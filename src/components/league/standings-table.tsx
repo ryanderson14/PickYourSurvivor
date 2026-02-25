@@ -97,13 +97,21 @@ export function StandingsTable({
   currentUserId,
   episodeWindowOpen = false,
   pickedUserIds = [],
+  lockedEpisodePicks,
 }: {
   members: MemberWithStats[];
   currentUserId: string;
   episodeWindowOpen?: boolean;
   pickedUserIds?: string[];
+  lockedEpisodePicks?: Array<{
+    user_id: string;
+    contestants: Pick<Contestant, "name" | "image_url" | "tribe">[];
+  }>;
 }) {
   const pickedSet = new Set(pickedUserIds);
+  const lockedPicksMap = new Map(
+    lockedEpisodePicks?.map((p) => [p.user_id, p.contestants]) ?? []
+  );
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const sorted = [...members].sort((a, b) => {
@@ -185,6 +193,37 @@ export function StandingsTable({
                   ) : (
                     <Badge variant="outline" className="text-xs text-muted-foreground">
                       Not Picked
+                    </Badge>
+                  )
+                ) : lockedEpisodePicks !== undefined ? (
+                  lockedPicksMap.has(member.user_id) ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex -space-x-1.5">
+                        {lockedPicksMap.get(member.user_id)!.map((c, i) => (
+                          <div
+                            key={i}
+                            className="relative h-6 w-6 overflow-hidden rounded-full border border-background"
+                          >
+                            <Image
+                              src={getContestantPhotoUrl(c)}
+                              alt={c.name}
+                              fill
+                              sizes="24px"
+                              className="object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {lockedPicksMap
+                          .get(member.user_id)!
+                          .map((c) => c.name.split(" ")[0])
+                          .join(" & ")}
+                      </span>
+                    </div>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-muted-foreground/50">
+                      No pick
                     </Badge>
                   )
                 ) : (
