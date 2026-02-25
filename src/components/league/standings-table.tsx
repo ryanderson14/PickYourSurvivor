@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Skull, Shield, ChevronDown, Minus } from "lucide-react";
+import { Skull, Shield, ChevronDown, Minus, Check } from "lucide-react";
 import { getContestantPhotoUrl } from "@/lib/cast";
 import Image from "next/image";
 import type { Contestant } from "@/lib/types";
@@ -95,10 +95,15 @@ function PickHistoryList({ history }: { history: PickHistoryEntry[] }) {
 export function StandingsTable({
   members,
   currentUserId,
+  episodeWindowOpen = false,
+  pickedUserIds = [],
 }: {
   members: MemberWithStats[];
   currentUserId: string;
+  episodeWindowOpen?: boolean;
+  pickedUserIds?: string[];
 }) {
+  const pickedSet = new Set(pickedUserIds);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const sorted = [...members].sort((a, b) => {
@@ -171,6 +176,17 @@ export function StandingsTable({
                     <Skull className="h-3 w-3" />
                     Out Ep. {member.eliminated_at_episode}
                   </Badge>
+                ) : episodeWindowOpen ? (
+                  pickedSet.has(member.user_id) ? (
+                    <Badge variant="outline" className="gap-1 text-xs border-green-500/40 text-green-500">
+                      <Check className="h-3 w-3" />
+                      Locked
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      Not Picked
+                    </Badge>
+                  )
                 ) : (
                   <Badge variant="secondary" className="gap-1 text-xs">
                     <Shield className="h-3 w-3" />

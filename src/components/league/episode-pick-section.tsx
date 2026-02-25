@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { EpisodeBanner } from "./episode-banner";
 import type { PickStatus } from "./episode-banner";
 import { ContestantGrid } from "@/components/picks/contestant-grid";
@@ -29,17 +29,8 @@ export function EpisodePickSection({
   isLocked: boolean;
   isEliminated: boolean;
 }) {
-  // Default: open if user hasn't picked yet (pick-below or debt with 0 picked)
-  const needsPick =
-    pickStatus.kind === "pick-below" ||
-    (pickStatus.kind === "debt" && pickStatus.picked < pickStatus.required);
-  const [isOpen, setIsOpen] = useState(needsPick);
+  const [isOpen, setIsOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-
-  // Sync open state if pickStatus changes externally (e.g. revalidation)
-  useEffect(() => {
-    if (needsPick) setIsOpen(true);
-  }, [needsPick]);
 
   const handleToggle = () => setIsOpen((prev) => !prev);
 

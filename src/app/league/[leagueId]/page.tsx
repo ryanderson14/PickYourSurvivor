@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Header } from "@/components/layout/header";
 import { StandingsTable } from "@/components/league/standings-table";
 import type { MemberWithStats } from "@/components/league/standings-table";
@@ -14,6 +15,18 @@ import {
 } from "@/lib/game-logic";
 import { SEASON } from "@/lib/constants";
 import type { Contestant, Episode, Pick as UserPick } from "@/lib/types";
+
+function formatLockTime(airDate: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  }).format(new Date(airDate));
+}
 
 export default async function LeaguePage({
   params,
@@ -83,6 +96,25 @@ export default async function LeaguePage({
   const currentEpisode = getCurrentEpisode(episodes);
   const currentMember = members?.find((m) => m.user_id === user.id);
   const isHost = league.host_id !== null && league.host_id === user.id;
+  const locked = currentEpisode ? arePicksLocked(currentEpisode) : true;
+
+  // Who has submitted a pick for the current open episode.
+  // Uses the admin client because RLS hides other players' picks until the episode airs.
+  // We only fetch user_id (not contestant) so no picks are revealed early.
+  let pickedUserIds: string[] = [];
+  if (currentEpisode && !locked) {
+    const admin = createAdminClient();
+    const { data: episodePickUsers } = await admin
+      .from("picks")
+      .select("user_id")
+      .eq("league_id", leagueId)
+      .eq("episode_id", currentEpisode.id);
+    pickedUserIds = [...new Set((episodePickUsers ?? []).map((p) => p.user_id))];
+  }
+
+  // Progress stats for the header
+  const totalEpisodes = episodes.length;
+  const survivorsRemaining = allContestants.filter((c) => !c.is_eliminated).length;
 
   // Completed episodes (for pick history)
   const completedEpisodes = episodes
@@ -104,7 +136,6 @@ export default async function LeaguePage({
     ? getRequiredPicks(userPicks, episodes, currentEpisode.number)
     : 1;
 
-  const locked = currentEpisode ? arePicksLocked(currentEpisode) : true;
   const isUserEliminated = currentMember?.is_eliminated ?? false;
   const seasonComplete = !currentEpisode;
 
@@ -209,11 +240,20 @@ export default async function LeaguePage({
             {league.name}
             {isHost && <Crown className="h-5 w-5 text-yellow-500" />}
           </h1>
-          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span>Season {league.season}</span>
+            {currentEpisode && (
+              <span>Ep {currentEpisode.number} of {totalEpisodes}</span>
+            )}
+            <span>{survivorsRemaining} survivors left</span>
             <span>{members?.length ?? 0} players</span>
             <InviteShareButton inviteCode={league.invite_code} />
           </div>
+          {currentEpisode && !locked && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Picks lock {formatLockTime(currentEpisode.air_date)}
+            </p>
+          )}
         </div>
 
         {/* Winner Banner */}
@@ -233,19 +273,22 @@ export default async function LeaguePage({
           </Card>
         )}
 
-        {/* Episode Banner + Collapsible Contestant Grid */}
+        {/* Your Picks */}
         {currentEpisode && (
-          <EpisodePickSection
-            episode={currentEpisode}
-            pickStatus={pickStatus}
-            contestants={allContestants}
-            usedContestantIds={usedContestantIds}
-            currentPickIds={currentUserPicks.map((p) => p.contestant_id)}
-            requiredPicks={requiredPicks}
-            leagueId={leagueId}
-            isLocked={locked}
-            isEliminated={isUserEliminated}
-          />
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">Your Picks</h2>
+            <EpisodePickSection
+              episode={currentEpisode}
+              pickStatus={pickStatus}
+              contestants={allContestants}
+              usedContestantIds={usedContestantIds}
+              currentPickIds={currentUserPicks.map((p) => p.contestant_id)}
+              requiredPicks={requiredPicks}
+              leagueId={leagueId}
+              isLocked={locked}
+              isEliminated={isUserEliminated}
+            />
+          </section>
         )}
 
         {/* Season Complete */}
@@ -265,6 +308,8 @@ export default async function LeaguePage({
           <StandingsTable
             members={membersWithStats}
             currentUserId={user.id}
+            episodeWindowOpen={!!currentEpisode && !locked}
+            pickedUserIds={pickedUserIds}
           />
         </section>
       </main>
