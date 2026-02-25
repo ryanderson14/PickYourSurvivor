@@ -218,8 +218,15 @@ export default async function LeaguePage({
       (c) => !c.is_eliminated && !memberUsedIds.has(c.id)
     ).length;
 
+    // Stop history at elimination so eliminated players don't accumulate "Missed" rows after being out.
+    const eliminationEpisode = m.is_eliminated ? m.eliminated_at_episode : null;
+    const historyEpisodes =
+      eliminationEpisode !== null
+        ? completedEpisodes.filter((ep) => ep.number <= eliminationEpisode)
+        : completedEpisodes;
+
     // Build pick history from completed episodes (supports multiple picks per episode)
-    const pickHistory = completedEpisodes.flatMap((ep) => {
+    const pickHistory = historyEpisodes.flatMap((ep) => {
       const episodePicks = memberPicks.filter(
         (p) => p.episode && (p.episode as Episode).number === ep.number
       );
