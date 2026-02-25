@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/header";
 import { LeagueCard } from "@/components/league/league-card";
-import { CreateLeagueDialog } from "@/components/league/create-league-dialog";
 import { JoinLeagueDialog } from "@/components/league/join-league-dialog";
 
 export default async function DashboardPage() {
@@ -69,7 +68,6 @@ export default async function DashboardPage() {
           </div>
           <div className="flex gap-2">
             <JoinLeagueDialog />
-            <CreateLeagueDialog />
           </div>
         </div>
 
@@ -84,7 +82,7 @@ export default async function DashboardPage() {
               You haven&apos;t joined any leagues yet.
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Create a league or join one with an invite code.
+              Join a league with an invite link or enter a code above.
             </p>
           </div>
         ) : (
@@ -94,7 +92,7 @@ export default async function DashboardPage() {
                 id: string;
                 name: string;
                 invite_code: string;
-                host_id: string;
+                host_id: string | null;
                 season: number;
               };
               return (
@@ -103,7 +101,6 @@ export default async function DashboardPage() {
                   league={league}
                   isEliminated={m.is_eliminated}
                   eliminatedAtEpisode={m.eliminated_at_episode}
-                  isHost={league.host_id === user.id}
                   currentEpisode={currentEpisode?.number ?? null}
                 />
               );

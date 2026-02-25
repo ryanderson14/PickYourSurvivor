@@ -45,10 +45,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If logged in user hits login page, redirect to dashboard
+  // If logged in user hits login page, redirect to next (or dashboard)
   if (user && request.nextUrl.pathname === "/login") {
+    const next = request.nextUrl.searchParams.get("next");
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = next && next.startsWith("/") ? next : "/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

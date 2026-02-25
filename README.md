@@ -22,31 +22,35 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Local Multiplayer Simulation (OAuth-Friendly)
 
-You only need one real Google account (your host account). Use the simulation CLI to create bot users, seed picks, and fast-forward reveal/results:
+Leagues are pre-configured in the database (not created by users). Use the simulation CLI to populate a league with bots, seed picks, and fast-forward reveal/results:
 
 ```bash
-# 1) Sign in once with Google in the app, then run:
-npm run sim:setup -- --host-email you@gmail.com --players 8
+# 1) Reset the database and restore the seeded league (invite code: PVRS50)
+npm run sim:reset -- --yes
 
-# 2) Reveal picks for the current open episode (moves air_date to the past)
+# 2) Populate the league with bots (optionally add your real account)
+npm run sim:setup -- --invite-code PVRS50 --players 8
+npm run sim:setup -- --invite-code PVRS50 --host-email you@gmail.com --players 8
+
+# 3) Join the league in the app via: http://localhost:3000/join/PVRS50
+
+# 4) Reveal picks for the current open episode (moves air_date to the past)
 npm run sim:reveal -- --league-id <league-id>
 
-# 3) Seed bot picks for upcoming weeks (example: next 3 open episodes)
+# 5) Seed bot picks for upcoming weeks
 npm run sim:seed -- --league-id <league-id> --weeks 3
 
-# 4) Simulate episode completion + eliminations
+# 6) Simulate episode completion + eliminations
 npm run sim:advance -- --league-id <league-id> --eliminated 2
-
-# 5) Reset gameplay data and restore original seeded episodes/contestants
-npm run sim:reset -- --yes
 ```
 
 Useful options:
-- `--league-id <id>`: use an existing league instead of creating a new one
-- `--invite-code <code>`: resolve league by invite code
+- `--invite-code <code>`: target a league by invite code (e.g. `PVRS50`)
+- `--league-id <id>`: target a league by UUID
+- `--host-email <email>`: optionally add your real account to the league
 - `--episode <n>`: target a specific episode number
 - `--weeks <n>`: with `sim:seed`, seed consecutive open episodes
-- `--include-host-pick`: include your host account when seeding picks
+- `--include-host-pick`: also seed a pick for your real account
 - `--all-members`: with `sim:seed`, seed all active members (not just bots)
 - `--yes`: required confirmation for `sim:reset`
 - `npm run sim:help`: print all simulation commands/options
@@ -61,7 +65,7 @@ Simulation CLI reset (works for hosted or local Supabase when `.env.local` is co
 npm run sim:reset -- --yes
 ```
 
-This clears `picks`, `league_members`, `leagues`, `contestants`, and `episodes`, then reloads `episodes` + `contestants` from `supabase/seed.sql`.
+This clears `picks`, `league_members`, `leagues`, `contestants`, and `episodes`, then reloads `episodes`, `contestants`, and the pre-configured league from `supabase/seed.sql`.
 
 Use `--seed-file` to target a different seed SQL file:
 
@@ -87,7 +91,7 @@ Hosted Supabase reset (your current setup if `.env.local` points to `*.supabase.
 truncate table picks, league_members, leagues, contestants, episodes restart identity cascade;
 ```
 
-3. Re-run the SQL in `supabase/seed.sql` to restore episodes + contestants.
+3. Re-run the SQL in `supabase/seed.sql` to restore episodes, contestants, and the seeded league.
 4. Optional cleanup for test bot profiles:
 
 ```sql

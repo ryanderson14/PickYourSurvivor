@@ -6,7 +6,7 @@ import type { MemberWithStats } from "@/components/league/standings-table";
 import { EpisodePickSection } from "@/components/league/episode-pick-section";
 import { Card, CardContent } from "@/components/ui/card";
 import { Crown, Trophy } from "lucide-react";
-import { CopyButton } from "@/components/league/copy-button";
+import { InviteShareButton } from "@/components/league/invite-share-button";
 import {
   getRequiredPicks,
   arePicksLocked,
@@ -82,7 +82,7 @@ export default async function LeaguePage({
 
   const currentEpisode = getCurrentEpisode(episodes);
   const currentMember = members?.find((m) => m.user_id === user.id);
-  const isHost = league.host_id === user.id;
+  const isHost = league.host_id !== null && league.host_id === user.id;
 
   // Completed episodes (for pick history)
   const completedEpisodes = episodes
@@ -208,10 +208,7 @@ export default async function LeaguePage({
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <span>Season {league.season}</span>
             <span>{members?.length ?? 0} players</span>
-            <div className="flex items-center gap-1">
-              <span>Code: {league.invite_code}</span>
-              <CopyButton text={league.invite_code} />
-            </div>
+            <InviteShareButton inviteCode={league.invite_code} />
           </div>
         </div>
 

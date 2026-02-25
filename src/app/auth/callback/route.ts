@@ -34,7 +34,11 @@ export async function GET(request: Request) {
           .single();
 
         if (!profile?.username) {
-          return NextResponse.redirect(`${origin}/onboarding`);
+          const onboardingUrl =
+            next && next !== "/dashboard"
+              ? `${origin}/onboarding?next=${encodeURIComponent(next)}`
+              : `${origin}/onboarding`;
+          return NextResponse.redirect(onboardingUrl);
         }
       }
       return NextResponse.redirect(`${origin}${next}`);

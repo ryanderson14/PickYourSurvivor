@@ -2,6 +2,11 @@
 -- Survivor Season 50 — Seed Data
 -- ============================================
 
+-- Pre-configured league (no host; managed by admin)
+-- Invite code: PVRS50  |  Invite link: /join/PVRS50
+INSERT INTO leagues (id, name, invite_code, season) VALUES
+  ('00000000-0000-0000-0000-000000000050', 'Pick Your Survivor S50', 'PVRS50', 50);
+
 -- Episodes (13 episodes, Wednesdays at 8pm ET)
 -- DST starts March 8, 2026: Episodes 1-2 are EST (-05:00), 3+ are EDT (-04:00)
 INSERT INTO episodes (number, title, air_date) VALUES

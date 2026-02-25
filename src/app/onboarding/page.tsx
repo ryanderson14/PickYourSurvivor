@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { UsernameForm } from "./username-form";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,7 +20,11 @@ export default async function OnboardingPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.username) redirect("/dashboard");
+  const { next } = await searchParams;
+
+  if (profile?.username) {
+    redirect(next && next.startsWith("/") ? next : "/dashboard");
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -27,7 +35,7 @@ export default async function OnboardingPage() {
             This is how other players will see you in the league.
           </p>
         </div>
-        <UsernameForm />
+        <UsernameForm next={next} />
       </div>
     </div>
   );

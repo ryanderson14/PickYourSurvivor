@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function UsernameForm() {
+export function UsernameForm({ next }: { next?: string }) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ export function UsernameForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(next && next.startsWith("/") ? next : "/dashboard");
   };
 
   return (

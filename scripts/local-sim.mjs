@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createClient } from "@supabase/supabase-js";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -77,15 +77,6 @@ function intOption(options, key, fallback) {
   return parsed;
 }
 
-function randomInviteCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
 function randomPassword() {
   return `Sim-${randomBytes(12).toString("hex")}!`;
 }
@@ -159,7 +150,27 @@ function parseSeedSql(seedSql) {
     throw new Error("No contestant rows parsed from seed.sql");
   }
 
-  return { episodes, contestants };
+  // Parse seeded league(s): INSERT INTO leagues (id, name, invite_code, season) VALUES (...)
+  const leagues = [];
+  const leaguesInsertMatch = seedSql.match(
+    /INSERT\s+INTO\s+leagues\s*\(\s*id\s*,\s*name\s*,\s*invite_code\s*,\s*season\s*\)\s*VALUES\s*([\s\S]*?);/i
+  );
+  if (leaguesInsertMatch) {
+    const leagueTupleRegex =
+      /\(\s*'((?:[^']|'{2})*)'\s*,\s*'((?:[^']|'{2})*)'\s*,\s*'((?:[^']|'{2})*)'\s*,\s*(\d+)\s*\)/g;
+    let leagueTupleMatch;
+    while ((leagueTupleMatch = leagueTupleRegex.exec(leaguesInsertMatch[1])) !== null) {
+      leagues.push({
+        id: decodeSqlString(leagueTupleMatch[1]),
+        name: decodeSqlString(leagueTupleMatch[2]),
+        invite_code: decodeSqlString(leagueTupleMatch[3]),
+        season: Number.parseInt(leagueTupleMatch[4], 10),
+        host_id: null,
+      });
+    }
+  }
+
+  return { episodes, contestants, leagues };
 }
 
 function loadSeedData(options) {
@@ -260,24 +271,6 @@ async function resolveHostUserId(admin, options) {
   return user.id;
 }
 
-async function createLeague(admin, { hostId, leagueName, season }) {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const leagueId = randomUUID();
-    const inviteCode = randomInviteCode();
-    const { error } = await admin.from("leagues").insert({
-      id: leagueId,
-      host_id: hostId,
-      name: leagueName,
-      season,
-      invite_code: inviteCode,
-    });
-    if (!error) return { id: leagueId, invite_code: inviteCode, name: leagueName, season };
-    if (error.code === "23505") continue;
-    throw new Error(`Failed to create league: ${error.message}`);
-  }
-  throw new Error("Could not create league (invite code collisions)");
-}
-
 async function resolveLeague(admin, options) {
   if (!options["league-id"] && !options["invite-code"]) {
     throw new Error("Provide --league-id or --invite-code");
@@ -345,18 +338,18 @@ async function resolveSeedUserIds(
   if (botsOnly) {
     const botIds = [];
     for (const userId of userIds) {
-      if (userId === hostId) continue;
+      if (hostId && userId === hostId) continue;
       const authUser = await getUserById(admin, userId);
       if (isSimBotEmail(authUser?.email)) {
         botIds.push(userId);
       }
     }
     userIds = botIds;
-  } else if (!includeHost) {
+  } else if (!includeHost && hostId) {
     userIds = userIds.filter((userId) => userId !== hostId);
   }
 
-  if (includeHost && !userIds.includes(hostId)) {
+  if (includeHost && hostId && !userIds.includes(hostId)) {
     userIds.push(hostId);
   }
 
@@ -725,20 +718,32 @@ Usage:
   node scripts/local-sim.mjs <command> [options]
 
 Commands:
-  setup    Create bots, join a league, and seed random picks for an open episode
+  setup    Create bots, add them to a pre-existing league, seed picks for an open episode
   seed     Seed picks for bots (or active members) for one or more upcoming episodes
   reveal   Move an episode air_date to the past so picks are visible to everyone
   advance  Reveal + complete an episode and apply eliminations in a league
-  reset    Clear sim/game tables and restore episodes + contestants from seed.sql
+  reset    Clear sim/game tables and restore seed data (episodes, contestants, league)
+
+Notes:
+  Leagues are pre-configured in the database (not created by users).
+  Run sim:reset to restore the seeded league (invite code: PVRS50), then run sim:setup
+  with --invite-code PVRS50 to populate it with bots.
 
 Examples:
-  node scripts/local-sim.mjs setup --host-email you@gmail.com --players 8
-  node scripts/local-sim.mjs seed --league-id <league-id> --weeks 3
-  node scripts/local-sim.mjs seed --league-id <league-id> --episode 5 --include-host-pick
-  node scripts/local-sim.mjs setup --league-id <league-id> --host-email you@gmail.com --players 6
-  node scripts/local-sim.mjs reveal --league-id <league-id>
-  node scripts/local-sim.mjs advance --league-id <league-id> --eliminated 2
-  node scripts/local-sim.mjs reset --yes
+  npm run sim:reset -- --yes
+  npm run sim:setup -- --invite-code PVRS50 --players 8
+  npm run sim:setup -- --invite-code PVRS50 --host-email you@gmail.com --players 6
+  npm run sim:seed -- --league-id <league-id> --weeks 3
+  npm run sim:seed -- --league-id <league-id> --episode 5 --include-host-pick
+  npm run sim:reveal -- --league-id <league-id>
+  npm run sim:advance -- --league-id <league-id> --eliminated 2
+
+setup options:
+  --invite-code <code>     Invite code of the target league (required unless --league-id)
+  --league-id <id>         UUID of the target league (alternative to --invite-code)
+  --host-email <email>     Optional: add your real account to the league as a player
+  --players <n>            Number of bot players to create (default: 8)
+  --include-host-pick      Also seed a pick for the host (requires --host-email)
 
 Common options:
   --episode <n>            Target episode number (default: first incomplete)
@@ -750,36 +755,43 @@ Common options:
 }
 
 async function handleSetup(admin, options) {
-  const hostUserId = await resolveHostUserId(admin, options);
-  await ensureProfile(admin, hostUserId, null);
+  // Leagues are pre-configured in the database; always require --league-id or --invite-code
+  if (!options["league-id"] && !options["invite-code"]) {
+    throw new Error(
+      "Leagues are pre-configured in the database.\n" +
+      "Provide --league-id <id> or --invite-code <code> to target a league.\n" +
+      "Run sim:reset first to restore the seeded league, then use --invite-code PVRS50"
+    );
+  }
 
   const season = intOption(options, "season", 50);
   const players = intOption(options, "players", 8);
   if (players < 1) throw new Error("--players must be at least 1");
 
-  let league;
-  if (options["league-id"] || options["invite-code"]) {
-    league = await resolveLeague(admin, options);
-  } else {
-    const leagueName =
-      String(options["league-name"] ?? `Local Test League ${new Date().toLocaleDateString()}`);
-    league = await createLeague(admin, {
-      hostId: hostUserId,
-      leagueName,
-      season,
-    });
+  const league = await resolveLeague(admin, options);
+
+  // Optionally add the real user (by --host-email or --host-id) to the league
+  let hostUserId = null;
+  if (options["host-email"] || options["host-id"]) {
+    hostUserId = await resolveHostUserId(admin, options);
+    await ensureProfile(admin, hostUserId, null);
   }
 
   const bots = await createBotUsers(admin, players);
-  await upsertLeagueMembers(admin, league.id, [hostUserId, ...bots.map((b) => b.id)]);
+  const memberIds = hostUserId
+    ? [hostUserId, ...bots.map((b) => b.id)]
+    : bots.map((b) => b.id);
+  await upsertLeagueMembers(admin, league.id, memberIds);
 
   const episode = await getEpisode(admin, options);
   const openAt = await setEpisodeOpen(admin, episode.id);
 
   const includeHost = Boolean(options["include-host-pick"]);
-  const userIdsToPick = includeHost
-    ? [hostUserId, ...bots.map((b) => b.id)]
-    : bots.map((b) => b.id);
+  const userIdsToPick =
+    includeHost && hostUserId
+      ? [hostUserId, ...bots.map((b) => b.id)]
+      : bots.map((b) => b.id);
+
   const pickSummary = await seedEpisodePicks(admin, {
     leagueId: league.id,
     episodeId: episode.id,
@@ -790,6 +802,7 @@ async function handleSetup(admin, options) {
   console.log("Setup complete.");
   console.log(`League: ${league.name} (${league.id})`);
   console.log(`Invite code: ${league.invite_code}`);
+  if (hostUserId) console.log(`Real user added: ${options["host-email"] ?? options["host-id"]}`);
   console.log(`Bots created: ${bots.length}`);
   console.log(`Episode ${episode.number} opened until: ${openAt}`);
   console.log(`Picks seeded: ${pickSummary.inserted} (skipped: ${pickSummary.skipped})`);
@@ -797,7 +810,7 @@ async function handleSetup(admin, options) {
   console.log("Next steps:");
   console.log(`1) Open /league/${league.id} and verify only your picks are visible.`);
   console.log(`2) Run: npm run sim:reveal -- --league-id ${league.id} --episode ${episode.number}`);
-  console.log("3) Refresh the league/history pages to verify multi-player reveal.");
+  console.log("3) Refresh the league page to verify multi-player reveal.");
 }
 
 async function handleReveal(admin, options) {
@@ -895,7 +908,7 @@ async function handleReset(admin, options) {
     throw new Error("reset is destructive. Re-run with --yes to confirm.");
   }
 
-  const { seedFile, episodes, contestants } = loadSeedData(options);
+  const { seedFile, episodes, contestants, leagues } = loadSeedData(options);
 
   await clearTable(admin, "picks");
   await clearTable(admin, "league_members");
@@ -913,10 +926,21 @@ async function handleReset(admin, options) {
     throw new Error(`Failed to insert seeded contestants: ${contestantsError.message}`);
   }
 
+  if (leagues.length > 0) {
+    const { error: leaguesError } = await admin.from("leagues").insert(leagues);
+    if (leaguesError) {
+      throw new Error(`Failed to insert seeded leagues: ${leaguesError.message}`);
+    }
+  }
+
   console.log("Reset complete.");
   console.log(`Seed file: ${seedFile}`);
   console.log(`Episodes restored: ${episodes.length}`);
   console.log(`Contestants restored: ${contestants.length}`);
+  console.log(`Leagues restored: ${leagues.length}`);
+  if (leagues.length > 0) {
+    console.log(`  Invite code: ${leagues[0].invite_code} — join at /join/${leagues[0].invite_code}`);
+  }
   console.log("Cleared tables: picks, league_members, leagues, contestants, episodes");
 }
 

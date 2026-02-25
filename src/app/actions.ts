@@ -3,17 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "crypto";
 import type { PostgrestError } from "@supabase/supabase-js";
-
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
 
 function logSupabaseError(context: string, error: PostgrestError) {
   console.error(`[${context}] ${error.message}`, {
@@ -21,67 +11,6 @@ function logSupabaseError(context: string, error: PostgrestError) {
     details: error.details,
     hint: error.hint,
   });
-}
-
-export async function createLeague(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const name = (formData.get("name") as string)?.trim();
-  if (!name || name.length < 2) {
-    return { error: "League name must be at least 2 characters" };
-  }
-
-  const leagueId = randomUUID();
-
-  // Retry on invite-code collisions. This keeps create-league robust even
-  // with the unique constraint on invite_code.
-  let leagueCreated = false;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const inviteCode = generateInviteCode();
-    const { error: leagueError } = await supabase
-      .from("leagues")
-      .insert({ id: leagueId, name, invite_code: inviteCode, host_id: user.id });
-
-    if (!leagueError) {
-      leagueCreated = true;
-      break;
-    }
-
-    // Unique violation could be invite_code collision; retry a few times.
-    if (leagueError.code === "23505") {
-      continue;
-    }
-
-    logSupabaseError("createLeague.leagues.insert", leagueError);
-    if (leagueError.code === "23503") {
-      return { error: "Profile setup is incomplete. Sign out and sign in again." };
-    }
-    return { error: "Failed to create league. Try again." };
-  }
-
-  if (!leagueCreated) {
-    return { error: "Could not generate a unique invite code. Try again." };
-  }
-
-  // Auto-join the host as a member
-  const { error: memberError } = await supabase
-    .from("league_members")
-    .insert({ league_id: leagueId, user_id: user.id });
-
-  if (memberError && memberError.code !== "23505") {
-    logSupabaseError("createLeague.league_members.insert", memberError);
-    return {
-      error:
-        "League was created, but membership failed. Apply latest Supabase migrations, then try creating the league again.",
-    };
-  }
-
-  revalidatePath("/dashboard");
-  redirect(`/league/${leagueId}`);
 }
 
 export async function joinLeague(formData: FormData) {
