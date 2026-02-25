@@ -5,9 +5,9 @@ import { Header } from "@/components/layout/header";
 import { StandingsTable } from "@/components/league/standings-table";
 import type { MemberWithStats } from "@/components/league/standings-table";
 import { EpisodePickSection } from "@/components/league/episode-pick-section";
+import { LeagueOverviewPanels } from "@/components/league/league-overview-panels";
 import { Card, CardContent } from "@/components/ui/card";
-import { Crown, Trophy } from "lucide-react";
-import { InviteShareButton } from "@/components/league/invite-share-button";
+import { Trophy } from "lucide-react";
 import {
   getRequiredPicks,
   arePicksLocked,
@@ -145,13 +145,29 @@ export default async function LeaguePage({
   }
 
   // Progress stats for the header
-  const totalEpisodes = episodes.length;
+  const sortedEpisodes = [...episodes].sort((a, b) => a.number - b.number);
   const survivorsRemaining = allContestants.filter((c) => !c.is_eliminated).length;
-
-  // Completed episodes (for pick history)
-  const completedEpisodes = episodes
-    .filter((e) => e.is_complete)
-    .sort((a, b) => a.number - b.number);
+  const completedEpisodes = sortedEpisodes.filter((e) => e.is_complete);
+  const lastCompletedEpisode = completedEpisodes.at(-1) ?? null;
+  const lastEpisodeEliminated = lastCompletedEpisode
+    ? allContestants
+        .filter((c) => c.eliminated_at_episode === lastCompletedEpisode.number)
+        .map((c) => c.name)
+        .sort((a, b) => a.localeCompare(b))
+    : [];
+  const nextPicksEpisode = (() => {
+    if (!currentEpisode) return null;
+    if (!locked) return currentEpisode;
+    return (
+      sortedEpisodes.find(
+        (episode) =>
+          !episode.is_complete && episode.number > currentEpisode.number
+      ) ?? null
+    );
+  })();
+  const nextPicksLockTime = nextPicksEpisode
+    ? formatLockTime(nextPicksEpisode.air_date)
+    : null;
 
   // Current episode picks
   const currentUserPicks = currentEpisode
@@ -273,27 +289,16 @@ export default async function LeaguePage({
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-        {/* League Header */}
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            {league.name}
-            {isHost && <Crown className="h-5 w-5 text-yellow-500" />}
-          </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>Season {league.season}</span>
-            {currentEpisode && (
-              <span>Ep {currentEpisode.number} of {totalEpisodes}</span>
-            )}
-            <span>{survivorsRemaining} survivors left</span>
-            <span>{members?.length ?? 0} players</span>
-            <InviteShareButton inviteCode={league.invite_code} />
-          </div>
-          {currentEpisode && !locked && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Picks lock {formatLockTime(currentEpisode.air_date)}
-            </p>
-          )}
-        </div>
+        <LeagueOverviewPanels
+          leagueName={league.name}
+          isHost={isHost}
+          memberCount={members?.length ?? 0}
+          inviteCode={league.invite_code}
+          currentEpisodeNumber={currentEpisode?.number ?? null}
+          lastEpisodeEliminated={lastEpisodeEliminated}
+          survivorsRemaining={survivorsRemaining}
+          nextPicksLockTime={nextPicksLockTime}
+        />
 
         {/* Winner Banner */}
         {winner && (
