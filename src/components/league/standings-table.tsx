@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Skull, Shield, ChevronDown, Minus, Check } from "lucide-react";
+import { Skull, Shield, ChevronDown, Minus } from "lucide-react";
 import { getContestantPhotoUrl } from "@/lib/cast";
 import Image from "next/image";
 import type { Contestant } from "@/lib/types";
@@ -142,8 +142,13 @@ export function StandingsTable({
         const isCurrentUser = member.user_id === currentUserId;
         const isExpanded = expandedRows.has(member.user_id);
         const hasHistory = member.pickHistory.length > 0;
+        const pickedCurrentEpisode = pickedSet.has(member.user_id);
+        const hasOpenEpisodeStatus =
+          episodeWindowOpen &&
+          currentEpisodeNumber !== undefined &&
+          !member.is_eliminated;
         const currentPicks = lockedPicksMap.get(member.user_id);
-        const isExpandable = hasHistory || !!currentPicks;
+        const isExpandable = hasHistory || !!currentPicks || hasOpenEpisodeStatus;
 
         return (
           <div
@@ -188,17 +193,6 @@ export function StandingsTable({
                     <Skull className="h-3 w-3" />
                     Out Ep. {member.eliminated_at_episode}
                   </Badge>
-                ) : episodeWindowOpen ? (
-                  pickedSet.has(member.user_id) ? (
-                    <Badge variant="outline" className="gap-1 text-xs border-green-500/40 text-green-500">
-                      <Check className="h-3 w-3" />
-                      Locked
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs text-muted-foreground">
-                      Not Picked
-                    </Badge>
-                  )
                 ) : lockedEpisodePicks !== undefined ? (
                   currentPicks ? (
                     <div className="flex -space-x-1.5">
@@ -258,6 +252,42 @@ export function StandingsTable({
                     <div className="space-y-1">
                       {/* Past pick history */}
                       <PickHistoryList history={member.pickHistory} />
+                      {/* Current open episode status */}
+                      {hasOpenEpisodeStatus && (
+                        <div
+                          className={`flex items-center gap-3 rounded-r-lg border-l-2 py-1.5 pl-3 ${
+                            pickedCurrentEpisode
+                              ? "border-l-green-500"
+                              : "border-l-muted-foreground/30 border-dashed"
+                          }`}
+                        >
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+                              pickedCurrentEpisode
+                                ? "border-green-500/60 bg-green-500/10 text-green-500"
+                                : "border-dashed border-muted-foreground/30 text-muted-foreground/50"
+                            }`}
+                          >
+                            ?
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline gap-2">
+                              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                Ep. {currentEpisodeNumber}
+                              </span>
+                              <span
+                                className={`truncate text-sm font-medium ${
+                                  pickedCurrentEpisode
+                                    ? "text-green-500"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {pickedCurrentEpisode ? "Locked" : "Not Picked"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {/* Current locked episode pick — pending outcome */}
                       {currentPicks && currentEpisodeNumber !== undefined && (
                         currentPicks.map((c, i) => (
