@@ -257,7 +257,7 @@ export function StandingsTable({
                             key={i}
                             className="flex items-center gap-3 rounded-r-lg border-l-2 border-l-muted-foreground/20 py-1.5 pl-3"
                           >
-                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-muted-foreground/20 grayscale">
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-muted-foreground/20">
                               <Image
                                 src={getContestantPhotoUrl(c)}
                                 alt={c.name}
@@ -271,11 +271,8 @@ export function StandingsTable({
                                 <span className="shrink-0 text-xs font-medium text-muted-foreground">
                                   Ep. {currentEpisodeNumber}
                                 </span>
-                                <span className="truncate text-sm font-medium text-muted-foreground">
+                                <span className="truncate text-sm font-medium">
                                   {c.name}
-                                </span>
-                                <span className="text-xs text-muted-foreground/50">
-                                  · pending
                                 </span>
                               </div>
                             </div>
