@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Flame } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "@/components/auth/user-menu";
+import { SignInButton } from "@/components/auth/sign-in-button";
 import { HowToPlayButton } from "@/components/layout/how-to-play-button";
 
 export async function Header() {
@@ -29,11 +30,13 @@ export async function Header() {
         </Link>
         <div className="flex items-center gap-1">
           <HowToPlayButton />
-          {profile && (
+          {profile ? (
             <UserMenu
               username={profile.username}
               avatarUrl={profile.avatar_url}
             />
+          ) : (
+            <SignInButton />
           )}
         </div>
       </div>

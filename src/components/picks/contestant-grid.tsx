@@ -46,8 +46,13 @@ export function ContestantGrid({
     return a.name.localeCompare(b.name);
   });
 
+  const haptic = (ms = 8) => {
+    try { navigator.vibrate?.(ms); } catch { /* not supported */ }
+  };
+
   const toggleSelect = (id: string) => {
     if (!interactive) return;
+    haptic();
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -87,6 +92,7 @@ export function ContestantGrid({
         toast.error(result.error);
       } else {
         toast.success("Pick locked in!");
+        haptic(20);
         onPickSubmitted?.();
       }
     });
