@@ -131,7 +131,7 @@ export default async function LeaguePage({
       Pick<Contestant, "name" | "image_url" | "tribe">[]
     >();
     for (const pick of episodePickData ?? []) {
-      const c = pick.contestant as Pick<
+      const c = pick.contestant as unknown as Pick<
         Contestant,
         "name" | "image_url" | "tribe"
       > | null;
