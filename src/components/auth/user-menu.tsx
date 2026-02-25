@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -10,14 +11,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/app/actions";
-import { LogOut } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 
 export function UserMenu({
   username,
   avatarUrl,
+  showOwnerTools,
 }: {
   username: string | null;
   avatarUrl: string | null;
+  showOwnerTools: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -38,6 +41,17 @@ export function UserMenu({
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {showOwnerTools && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/weekly">
+                <ShieldCheck className="h-4 w-4" />
+                Weekly Update
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <form action={signOut}>
           <DropdownMenuItem asChild>
             <button type="submit" className="w-full text-destructive focus:text-destructive">

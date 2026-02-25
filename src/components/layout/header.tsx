@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "@/components/auth/user-menu";
 import { SignInButton } from "@/components/auth/sign-in-button";
 import { HowToPlayButton } from "@/components/layout/how-to-play-button";
+import { shouldShowOwnerTools } from "@/lib/owner-access";
 
 export async function Header() {
   const supabase = await createClient();
@@ -12,6 +13,7 @@ export async function Header() {
   } = await supabase.auth.getUser();
 
   let profile = null;
+  let showOwnerTools = false;
   if (user) {
     const { data } = await supabase
       .from("profiles")
@@ -19,6 +21,10 @@ export async function Header() {
       .eq("id", user.id)
       .single();
     profile = data;
+    showOwnerTools = shouldShowOwnerTools({
+      email: user.email,
+      username: data?.username ?? null,
+    });
   }
 
   return (
@@ -34,6 +40,7 @@ export async function Header() {
             <UserMenu
               username={profile.username}
               avatarUrl={profile.avatar_url}
+              showOwnerTools={showOwnerTools}
             />
           ) : (
             <SignInButton />
